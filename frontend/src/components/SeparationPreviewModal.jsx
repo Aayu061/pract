@@ -119,7 +119,7 @@ export default function SeparationPreviewModal({
         </div>
 
         {/* List of Extracted Practicals */}
-        <div className="modal-body" style={{ flex: 1, overflowY: 'auto', gap: '1.25rem' }}>
+        <div className="modal-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto', gap: '1.25rem' }}>
           {practicals.map((item, idx) => {
             const isOutputExpanded = expandedOutputIndex[idx];
             return (

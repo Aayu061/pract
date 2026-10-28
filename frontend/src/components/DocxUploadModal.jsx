@@ -78,7 +78,7 @@ export default function DocxUploadModal({
           </button>
         </div>
 
-        <div className="modal-body">
+        <div className="modal-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
             Upload your laboratory manual or compiled practical file. The smart parser will automatically segment each experiment, isolate the Aim, extract clean source code, and strictly filter out terminal outputs and execution logs.
           </p>

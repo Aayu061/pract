@@ -61,8 +61,8 @@ export default function SubjectModal({ isOpen, onClose, onCreateSubject }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <div className="modal-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '1rem' }}>
               <div className="form-group">
                 <label>Course Code *</label>

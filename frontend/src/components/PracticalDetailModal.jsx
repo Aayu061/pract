@@ -85,9 +85,9 @@ export default function PracticalDetailModal({
           </div>
         </div>
 
-        <div className="modal-body" style={{ maxHeight: '70vh' }}>
+        <div className="modal-body">
           {practical.description && (
-            <div style={{ padding: '0.85rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ padding: '0.85rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border-subtle)', flexShrink: 0 }}>
               <strong style={{ fontSize: '0.85rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Theory & Objective:</strong>
               <p style={{ marginTop: '0.35rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{practical.description}</p>
             </div>

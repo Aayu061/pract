@@ -66,8 +66,8 @@ export default function ManualPracticalModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-          <div className="modal-body" style={{ flex: 1, overflowY: 'auto' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <div className="modal-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 140px', gap: '1rem' }}>
               <div className="form-group">
                 <label>Exp #</label>

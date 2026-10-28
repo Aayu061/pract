@@ -46,7 +46,7 @@ export default function DeleteConfirmModal({
           </button>
         </div>
 
-        <div className="modal-body" style={{ gap: '1rem' }}>
+        <div className="modal-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto', gap: '1rem' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', lineHeight: '1.5' }}>
             {isSubject ? (
               <>

@@ -82,9 +82,14 @@ body {
 }
 
 /* Custom Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-medium) transparent;
+}
+
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -289,6 +294,7 @@ body {
   gap: 0.5rem;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .subject-item {
@@ -590,6 +596,9 @@ body {
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .code-viewer-header {
@@ -599,15 +608,34 @@ body {
   padding: 0.85rem 1.25rem;
   background: rgba(255, 255, 255, 0.03);
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .code-viewer-content {
   display: flex;
-  overflow-x: auto;
+  overflow: auto;
   font-family: var(--font-mono);
   font-size: 0.88rem;
   line-height: 1.6;
   padding: 1.25rem 0;
+  max-height: 58vh;
+  min-height: 160px;
+  position: relative;
+}
+
+.code-viewer-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.code-viewer-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+.code-viewer-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+.code-viewer-content::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
 }
 
 .line-numbers {
@@ -616,6 +644,14 @@ body {
   color: var(--text-dim);
   user-select: none;
   border-right: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  position: sticky;
+  left: 0;
+  background: var(--bg-code);
+  z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  line-height: 1.6;
 }
 
 .code-lines {
@@ -623,6 +659,18 @@ body {
   color: #f8fafc;
   flex: 1;
   white-space: pre;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.code-lines code {
+  display: block;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: inherit;
 }
 
 /* Modals */
@@ -664,6 +712,7 @@ body {
   justify-content: space-between;
   padding: 1.25rem 1.75rem;
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .modal-header h2 {
@@ -678,6 +727,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .modal-footer {
@@ -688,6 +739,15 @@ body {
   padding: 1.25rem 1.75rem;
   border-top: 1px solid var(--border-subtle);
   background: rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.modal-content > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Form Controls */
@@ -725,6 +785,23 @@ body {
   font-size: 0.85rem;
   line-height: 1.5;
   tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+}
+
+.form-control.code-area::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.form-control.code-area::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+.form-control.code-area::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+.form-control.code-area::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
 }
 
 /* Dropzone */
