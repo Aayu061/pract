@@ -106,3 +106,58 @@ def test_deletion_with_renumbering():
     # Clean up subject (tests atomic cascade deletion)
     del_sub = client.delete(f"/api/subjects/{sub_id}")
     assert del_sub.status_code == 204
+
+
+def test_batch_commit_with_discarded_output_and_collision():
+    code = f"INGEST-{uuid.uuid4().hex[:6]}"
+    sub = client.post("/api/subjects", json={"code": code, "name": "Ingest Batch Test"}).json()
+    sub_id = sub["id"]
+
+    # Pre-populate with practical #1
+    client.post(f"/api/subjects/{sub_id}/practicals", json={
+        "practical_number": 1,
+        "title": "Existing Practical 1",
+        "code": "print('existing')"
+    })
+
+    # Batch commit payload with practical #1 (should be reassigned to avoid collision) and discarded_output
+    commit_payload = {
+        "subject_id": sub_id,
+        "practicals": [
+            {
+                "practical_number": 1,
+                "title": "New Practical 1",
+                "description": "Theory 1",
+                "language": "python",
+                "code": "a = 10\nprint(a)",
+                "discarded_output": "10\n[Finished in 0.1s]"
+            },
+            {
+                "practical_number": 2,
+                "title": "Practical 2",
+                "description": "Theory 2",
+                "language": "python",
+                "code": "b = 20\nprint(b)",
+                "discarded_output": "20"
+            }
+        ]
+    }
+
+    res = client.post("/api/ingest/commit", json=commit_payload)
+    assert res.status_code == 201
+    items = res.json()
+    assert len(items) == 2
+
+    # Check that practicals in subject now total 3 and numbers are unique
+    all_pracs = client.get(f"/api/subjects/{sub_id}/practicals").json()
+    assert len(all_pracs) == 3
+    numbers = [p["practical_number"] for p in all_pracs]
+    assert len(numbers) == len(set(numbers)), "Practical numbers must be unique"
+
+    # Verify discarded_output is saved
+    item_with_output = [p for p in all_pracs if p["title"] == "New Practical 1"][0]
+    assert item_with_output["discarded_output"] == "10\n[Finished in 0.1s]"
+
+    # Clean up
+    client.delete(f"/api/subjects/{sub_id}")
+

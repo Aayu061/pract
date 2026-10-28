@@ -399,22 +399,33 @@ def fs_delete_practical(practical_id: str, renumber: bool = True) -> bool:
     return True
 
 
-def fs_batch_commit_practicals(subject_id: str, practicals_data: List[dict]) -> int:
+def fs_batch_commit_practicals(subject_id: str, practicals_data: List[dict]) -> List[PracticalOut]:
     db = get_firestore_db()
     if not db:
-        return 0
+        return []
 
     batch = db.batch()
     now_dt = datetime.now(timezone.utc)
-    count = 0
+    created_items: List[PracticalOut] = []
+
+    # Get existing numbers to avoid collisions
+    existing_docs = list(db.collection("practicals").where(filter=FieldFilter("subject_id", "==", subject_id)).stream())
+    existing_nums = set(int(d.to_dict().get("practical_number", 0)) for d in existing_docs)
+    next_avail = (max(existing_nums) + 1) if existing_nums else 1
 
     for item in practicals_data:
+        p_num = int(item.get("practical_number", 0))
+        if p_num <= 0 or p_num in existing_nums:
+            p_num = next_avail
+            next_avail += 1
+        existing_nums.add(p_num)
+
         new_id = str(uuid.uuid4())
         doc_ref = db.collection("practicals").document(new_id)
-        batch.set(doc_ref, {
+        doc_data = {
             "subject_id": subject_id,
-            "practical_number": int(item.get("practical_number", count + 1)),
-            "title": item.get("title", f"Practical {count + 1}"),
+            "practical_number": p_num,
+            "title": item.get("title", f"Practical {p_num}"),
             "language": item.get("language", "text").lower(),
             "description": item.get("description", ""),
             "code": item.get("code", ""),
@@ -422,8 +433,24 @@ def fs_batch_commit_practicals(subject_id: str, practicals_data: List[dict]) -> 
             "discarded_output": item.get("discarded_output", ""),
             "created_at": now_dt.isoformat(),
             "updated_at": now_dt.isoformat(),
-        })
-        count += 1
+        }
+        batch.set(doc_ref, doc_data)
+        created_items.append(
+            PracticalOut(
+                id=new_id,
+                subject_id=subject_id,
+                practical_number=doc_data["practical_number"],
+                title=doc_data["title"],
+                language=doc_data["language"],
+                description=doc_data["description"],
+                code=doc_data["code"],
+                tags=doc_data["tags"],
+                discarded_output=doc_data["discarded_output"],
+                created_at=now_dt,
+                updated_at=now_dt,
+            )
+        )
 
     batch.commit()
-    return count
+    return created_items
+

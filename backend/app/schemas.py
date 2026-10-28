@@ -94,8 +94,21 @@ class IngestionCommitItem(BaseModel):
     language: str
     code: str
     tags: Optional[str] = ""
+    discarded_output: Optional[str] = ""
 
 
 class IngestionCommitRequest(BaseModel):
     subject_id: str
     practicals: List[IngestionCommitItem]
+
+
+class DocumentOut(BaseModel):
+    id: str
+    subject_id: Optional[str] = None
+    filename: str
+    file_size: int
+    parsed_practical_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+

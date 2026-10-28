@@ -66,9 +66,9 @@ def commit_ingested_practicals(payload: IngestionCommitRequest, db: Session = De
         if not subject:
             raise HTTPException(status_code=404, detail="Target Subject not found")
 
-        items_dict = [p.dict() for p in payload.practicals]
-        fs_batch_commit_practicals(payload.subject_id, items_dict)
-        return fs_get_practicals_by_subject(payload.subject_id)
+        items_dict = [p.model_dump() for p in payload.practicals]
+        return fs_batch_commit_practicals(payload.subject_id, items_dict)
+
 
     subject = db.query(Subject).filter(Subject.id == payload.subject_id).first()
     if not subject:
@@ -76,13 +76,21 @@ def commit_ingested_practicals(payload: IngestionCommitRequest, db: Session = De
 
     created_items: List[Practical] = []
 
-    # Get max current practical number in subject to prevent accidental collisions if needed
-    current_max_num = db.query(Practical.practical_number).filter(Practical.subject_id == payload.subject_id).order_by(Practical.practical_number.desc()).first()
-    start_num = (current_max_num[0] + 1) if current_max_num else 1
+    # Get existing practical numbers to avoid collisions
+    existing_nums = set(
+        r[0] for r in db.query(Practical.practical_number).filter(Practical.subject_id == payload.subject_id).all()
+    )
+    next_avail = (max(existing_nums) + 1) if existing_nums else 1
 
     for idx, item in enumerate(payload.practicals):
-        # If practical number is 0 or collides, calculate safe number
-        p_num = item.practical_number if item.practical_number > 0 else (start_num + idx)
+        # If practical number is non-positive or already in use, allocate next available number
+        if item.practical_number <= 0 or item.practical_number in existing_nums:
+            p_num = next_avail
+            next_avail += 1
+        else:
+            p_num = item.practical_number
+
+        existing_nums.add(p_num)
 
         practical = Practical(
             subject_id=payload.subject_id,
@@ -92,7 +100,7 @@ def commit_ingested_practicals(payload: IngestionCommitRequest, db: Session = De
             language=item.language or "text",
             code=item.code,
             tags=item.tags or "",
-            discarded_output=item.discarded_output or "",
+            discarded_output=getattr(item, "discarded_output", "") or "",
         )
         db.add(practical)
         created_items.append(practical)
