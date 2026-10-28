@@ -221,3 +221,43 @@ def test_full_docx_multi_practical_parsing():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_quote_normalization():
+    from app.parser.code_sanitizer import normalize_typographic_quotes
+    code_with_smart_quotes = 'print(“Hello, World!”)\nname = ‘Alice’'
+    cleaned = normalize_typographic_quotes(code_with_smart_quotes)
+    assert cleaned == 'print("Hello, World!")\nname = \'Alice\''
+    assert "“" not in cleaned
+    assert "”" not in cleaned
+    assert "‘" not in cleaned
+    assert "’" not in cleaned
+
+
+def test_table_merged_cell_deduplication():
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        doc = Document()
+        doc.add_heading("Experiment 1: Table Test", level=1)
+        doc.add_paragraph("Aim: Test table de-duplication")
+        table = doc.add_table(rows=2, cols=2)
+        # Merge row 0 cell 0 with cell 1
+        a = table.cell(0, 0)
+        b = table.cell(0, 1)
+        a.merge(b)
+        a.text = "Merged Header Text"
+        table.cell(1, 0).text = "Row 2 Col 1"
+        table.cell(1, 1).text = "Row 2 Col 2"
+        doc.save(tmp_path)
+
+        from app.parser.docx_extractor import extract_raw_lines_from_docx
+        lines = extract_raw_lines_from_docx(tmp_path)
+        all_text = "\n".join(lines)
+        # Merged header must occur exactly once
+        assert all_text.count("Merged Header Text") == 1
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+

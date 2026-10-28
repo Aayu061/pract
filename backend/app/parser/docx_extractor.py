@@ -10,13 +10,21 @@ from docx.text.paragraph import Paragraph
 from docx.table import Table
 
 
-def extract_raw_lines_from_docx(file_path: str) -> List[str]:
+def extract_document_elements(file_path: str) -> List[Dict[str, Any]]:
     """
-    Reads paragraphs and tables from .docx preserving sequential order.
-    Uses docx Paragraph/Table wrappers to avoid duplicate text from mc:AlternateContent.
+    Reads paragraphs and tables from .docx preserving sequential order and capturing AST metadata:
+    - Text content
+    - Style name (Heading 1, Heading 2, Title, Normal)
+    - Heading level
+    - Bold and italic run flags
+    - Monospace font detection (Consolas, Courier New, Lucida Console, Monaco, Fira Code)
+    - De-duplicated table cells (accounting for gridSpan and vMerge via seen XML _tc elements)
+    - Single-cell callout box detection
     """
     doc = Document(file_path)
-    raw_lines: List[str] = []
+    elements: List[Dict[str, Any]] = []
+
+    MONOSPACE_FONTS = {"consolas", "courier new", "courier", "lucida console", "monaco", "fira code", "monospace"}
 
     for element in doc.element.body:
         tag = element.tag.split("}")[-1] if "}" in element.tag else element.tag
@@ -24,20 +32,84 @@ def extract_raw_lines_from_docx(file_path: str) -> List[str]:
         if tag == "p":
             p = Paragraph(element, doc)
             text = p.text.strip("\r\n")
-            if text:
-                raw_lines.append(text)
-            else:
-                if raw_lines and raw_lines[-1] != "":
-                    raw_lines.append("")
+            if not text:
+                if elements and elements[-1].get("text") != "":
+                    elements.append({"text": "", "is_blank": True})
+                continue
+
+            style_name = (p.style.name or "").lower() if p.style else ""
+            is_heading = "heading" in style_name or "title" in style_name
+            heading_level = 0
+            if "heading 1" in style_name:
+                heading_level = 1
+            elif "heading 2" in style_name:
+                heading_level = 2
+            elif "heading 3" in style_name:
+                heading_level = 3
+
+            # Run inspection
+            is_bold = any(bool(r.bold) for r in p.runs if r.text.strip())
+            is_monospace = any(
+                r.font.name and r.font.name.lower() in MONOSPACE_FONTS
+                for r in p.runs if r.text.strip()
+            )
+            font_size = 0.0
+            for r in p.runs:
+                if r.font.size:
+                    try:
+                        font_size = max(font_size, r.font.size.pt)
+                    except Exception:
+                        pass
+
+            elements.append({
+                "text": text,
+                "is_heading": is_heading,
+                "heading_level": heading_level,
+                "is_bold": is_bold,
+                "is_monospace": is_monospace,
+                "font_size_pt": font_size,
+                "is_table": False,
+            })
 
         elif tag == "tbl":
             table = Table(element, doc)
-            for row in table.rows:
-                cell_texts = [cell.text.strip() for cell in row.cells if cell.text.strip()]
-                if cell_texts:
-                    raw_lines.append("\n".join(cell_texts))
+            seen_cells = set()
+            is_single_cell = len(table.rows) == 1 and len(table.columns) == 1
 
-    return raw_lines
+            for row in table.rows:
+                row_texts = []
+                for cell in row.cells:
+                    # De-duplicate merged cells (gridSpan / vMerge)
+                    if cell._tc in seen_cells:
+                        continue
+                    seen_cells.add(cell._tc)
+
+                    cell_text = cell.text.strip()
+                    if cell_text:
+                        row_texts.append(cell_text)
+
+                if row_texts:
+                    elements.append({
+                        "text": "\n".join(row_texts),
+                        "is_heading": False,
+                        "heading_level": 0,
+                        "is_bold": False,
+                        "is_monospace": False,
+                        "is_table": True,
+                        "is_callout_box": is_single_cell,
+                    })
+
+    return elements
+
+
+def extract_raw_lines_from_docx(file_path: str) -> List[str]:
+    """
+    Reads paragraphs and tables from .docx preserving sequential order.
+    Uses extract_document_elements to avoid duplicate text from merged table cells.
+    """
+    elements = extract_document_elements(file_path)
+    return [e["text"] for e in elements]
+
 
 
 def calculate_confidence(title: str, code: str, language: str, has_output_filtered: bool) -> int:
@@ -59,17 +131,18 @@ def calculate_confidence(title: str, code: str, language: str, has_output_filter
 def parse_docx_file(file_path: str) -> Dict[str, Any]:
     """
     Full extraction pipeline:
-    1. Read .docx sequential lines
+    1. Read .docx sequential AST elements with font and table metadata
     2. Segment into discrete practical blocks
     3. Separate Aim, Theory, Code, and Output
     4. Detect programming language
     5. Return parsed preview objects
     """
-    raw_lines = extract_raw_lines_from_docx(file_path)
-    segments = segment_document_lines(raw_lines)
+    doc_elements = extract_document_elements(file_path)
+    segments = segment_document_lines(doc_elements)
 
     parsed_practicals: List[Dict[str, Any]] = []
     warnings: List[str] = []
+
 
     for index, seg in enumerate(segments, start=1):
         num = seg.get("number", index)

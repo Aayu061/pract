@@ -1,5 +1,6 @@
 import re
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Any
+
 
 # Regex patterns that indicate transition to output/execution section
 OUTPUT_BOUNDARY_PATTERNS = [
@@ -46,9 +47,20 @@ THEORY_PATTERNS = [
 ]
 
 STRONG_CODE_KEYWORDS = re.compile(
-    r"^(?:#\s*include|import\s+|from\s+|def\s+|class\s+|public\s+class|public\s+static|<!DOCTYPE|<html|\bint\s+main\b|\bCREATE\s+TABLE|\bSELECT\b|/\*|//|#!\s*/bin|\bplot\s*\(|\bbarplot\s*\(|\bdata\.frame\s*\(|\blibrary\s*\()",
+    r"^(?:#\s*include|import\s+[A-Za-z0-9_\.]+|from\s+[A-Za-z0-9_\.]+\s+import|def\s+[A-Za-z_]\w*\s*\(|\bclass\s+[A-Za-z_]\w*(?:\s*\(|\s*\{|\s*:)|public\s+class\b|public\s+static\b|<!DOCTYPE|<html|\bint\s+main\b|\bCREATE\s+TABLE\b|\bSELECT\s+.+\s+FROM\b|/\*|//|#!\s*/bin|\bplot\s*\(|\bbarplot\s*\(|\bdata\.frame\s*\(|\blibrary\s*\()",
     re.IGNORECASE
 )
+
+
+def normalize_typographic_quotes(text: str) -> str:
+    """
+    Normalizes Microsoft Word smart/curly quotes into standard ASCII quotes
+    so code compiles cleanly.
+    """
+    text = text.replace("“", '"').replace("”", '"')
+    text = text.replace("‘", "'").replace("’", "'")
+    text = text.replace("`", "'")
+    return text
 
 
 def strip_line_numbering(lines: List[str]) -> List[str]:
@@ -108,11 +120,13 @@ def clean_repl_prompt(line: str) -> str:
     return line
 
 
-def extract_metadata_and_clean_code(raw_lines: List[str]) -> Tuple[str, str, str, str]:
+def extract_metadata_and_clean_code(raw_lines: List[Any]) -> Tuple[str, str, str, str]:
     """
     Enhanced Multi-Cycle State-Machine Parser:
     Seamlessly parses practicals with multiple interleaved sub-experiments:
     [Subtask 1: Code -> Output] -> [Subtask 2: Code -> Output] -> [Subtask 3: Code -> Output]
+
+    Supports both plain string lines and AST element dicts with monospace & typography metadata.
 
     Returns:
     - title / aim
@@ -128,7 +142,18 @@ def extract_metadata_and_clean_code(raw_lines: List[str]) -> Tuple[str, str, str
     # States: 'PREAMBLE', 'CODE', 'OUTPUT'
     state = "PREAMBLE"
 
-    for line in raw_lines:
+    for item in raw_lines:
+        if isinstance(item, dict):
+            raw_text = item.get("text", "")
+            is_monospace = item.get("is_monospace", False)
+            is_callout = item.get("is_callout_box", False)
+        else:
+            raw_text = str(item)
+            is_monospace = False
+            is_callout = False
+
+        # Normalize typographic smart quotes
+        line = normalize_typographic_quotes(raw_text)
         line_str = line.strip()
 
         # Handle blank lines
@@ -138,6 +163,13 @@ def extract_metadata_and_clean_code(raw_lines: List[str]) -> Tuple[str, str, str
             elif state == "OUTPUT" and discarded_output_lines and discarded_output_lines[-1] != "":
                 discarded_output_lines.append("")
             continue
+
+        # Monospace font run or callout table immediately identifies active code block
+        if is_monospace or is_callout:
+            state = "CODE"
+            clean_code_lines.append(clean_repl_prompt(line))
+            continue
+
 
         # 1. Aim / Title Detection (if in PREAMBLE or if not yet set)
         if not extracted_title:
