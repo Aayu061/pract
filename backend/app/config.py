@@ -1,12 +1,19 @@
 import os
+import tempfile
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
+
+# In Vercel / AWS Lambda, application filesystem is read-only; use /tmp for data & uploads
+if os.environ.get("VERCEL") == "1" or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    DATA_DIR = Path(tempfile.gettempdir()) / "practicals_data"
+else:
+    DATA_DIR = BASE_DIR / "data"
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 UPLOAD_DIR = DATA_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{DATA_DIR / 'practicals.db'}")
 if DATABASE_URL.startswith("postgres://"):
