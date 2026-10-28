@@ -42,6 +42,7 @@ class PracticalBase(BaseModel):
     language: Optional[str] = "cpp"
     code: str = Field(..., json_schema_extra={"example": "#include <iostream>..."})
     tags: Optional[str] = ""
+    discarded_output: Optional[str] = ""
 
 
 class PracticalCreate(PracticalBase):
@@ -55,6 +56,7 @@ class PracticalUpdate(BaseModel):
     language: Optional[str] = None
     code: Optional[str] = None
     tags: Optional[str] = None
+    discarded_output: Optional[str] = None
 
 
 class PracticalOut(PracticalBase):

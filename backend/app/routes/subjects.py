@@ -5,12 +5,23 @@ from sqlalchemy import func
 from ..database import get_db
 from ..models import Subject, Practical
 from ..schemas import SubjectCreate, SubjectUpdate, SubjectOut
+from ..firestore_service import (
+    is_firestore_active,
+    fs_get_subjects,
+    fs_get_subject_by_id,
+    fs_create_subject,
+    fs_update_subject,
+    fs_delete_subject,
+)
 
 router = APIRouter(prefix="/api/subjects", tags=["Subjects"])
 
 
 @router.get("", response_model=List[SubjectOut])
 def get_subjects(db: Session = Depends(get_db)):
+    if is_firestore_active():
+        return fs_get_subjects()
+
     subjects = db.query(Subject).order_by(Subject.created_at.desc()).all()
     results = []
     for s in subjects:
@@ -32,6 +43,12 @@ def get_subjects(db: Session = Depends(get_db)):
 
 @router.post("", response_model=SubjectOut, status_code=status.HTTP_201_CREATED)
 def create_subject(payload: SubjectCreate, db: Session = Depends(get_db)):
+    if is_firestore_active():
+        try:
+            return fs_create_subject(payload)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     # Check if subject with same code already exists
     existing = db.query(Subject).filter(Subject.code == payload.code.strip()).first()
     if existing:
@@ -63,6 +80,12 @@ def create_subject(payload: SubjectCreate, db: Session = Depends(get_db)):
 
 @router.get("/{subject_id}", response_model=SubjectOut)
 def get_subject(subject_id: str, db: Session = Depends(get_db)):
+    if is_firestore_active():
+        sub = fs_get_subject_by_id(subject_id)
+        if not sub:
+            raise HTTPException(status_code=404, detail="Subject not found")
+        return sub
+
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
@@ -82,6 +105,15 @@ def get_subject(subject_id: str, db: Session = Depends(get_db)):
 
 @router.put("/{subject_id}", response_model=SubjectOut)
 def update_subject(subject_id: str, payload: SubjectUpdate, db: Session = Depends(get_db)):
+    if is_firestore_active():
+        try:
+            sub = fs_update_subject(subject_id, payload)
+            if not sub:
+                raise HTTPException(status_code=404, detail="Subject not found")
+            return sub
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
@@ -117,6 +149,12 @@ def update_subject(subject_id: str, payload: SubjectUpdate, db: Session = Depend
 
 @router.delete("/{subject_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_subject(subject_id: str, db: Session = Depends(get_db)):
+    if is_firestore_active():
+        success = fs_delete_subject(subject_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Subject not found")
+        return None
+
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")

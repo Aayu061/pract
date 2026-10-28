@@ -9,6 +9,12 @@ from ..config import UPLOAD_DIR
 from ..models import Subject, Practical
 from ..schemas import DocxPreviewResponse, IngestionCommitRequest, PracticalOut
 from ..parser.docx_extractor import parse_docx_file
+from ..firestore_service import (
+    is_firestore_active,
+    fs_get_subject_by_id,
+    fs_batch_commit_practicals,
+    fs_get_practicals_by_subject,
+)
 
 router = APIRouter(prefix="/api/ingest", tags=["Ingestion"])
 
@@ -55,6 +61,15 @@ def commit_ingested_practicals(payload: IngestionCommitRequest, db: Session = De
     """
     Commits approved practicals from the preview step into the target subject.
     """
+    if is_firestore_active():
+        subject = fs_get_subject_by_id(payload.subject_id)
+        if not subject:
+            raise HTTPException(status_code=404, detail="Target Subject not found")
+
+        items_dict = [p.dict() for p in payload.practicals]
+        fs_batch_commit_practicals(payload.subject_id, items_dict)
+        return fs_get_practicals_by_subject(payload.subject_id)
+
     subject = db.query(Subject).filter(Subject.id == payload.subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Target Subject not found")
@@ -77,6 +92,7 @@ def commit_ingested_practicals(payload: IngestionCommitRequest, db: Session = De
             language=item.language or "text",
             code=item.code,
             tags=item.tags or "",
+            discarded_output=item.discarded_output or "",
         )
         db.add(practical)
         created_items.append(practical)

@@ -1,3 +1,4 @@
+import uuid
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
@@ -19,9 +20,10 @@ def test_health():
 
 
 def test_subject_and_practical_flow():
+    code = f"TEST-{uuid.uuid4().hex[:6]}"
     # 1. Create a Subject
     sub_res = client.post("/api/subjects", json={
-        "code": "TEST-CS101",
+        "code": code,
         "name": "Introduction to Programming",
         "semester": "Semester 1",
         "department": "Computer Science",
@@ -31,7 +33,7 @@ def test_subject_and_practical_flow():
     assert sub_res.status_code == 201
     subject_data = sub_res.json()
     subject_id = subject_data["id"]
-    assert subject_data["code"] == "TEST-CS101"
+    assert subject_data["code"] == code
 
     # 2. Add Practical manually
     prac_res = client.post(f"/api/subjects/{subject_id}/practicals", json={
@@ -79,8 +81,9 @@ def test_subject_and_practical_flow():
 
 
 def test_deletion_with_renumbering():
+    del_code = f"CS-DEL-{uuid.uuid4().hex[:6]}"
     # Create Subject
-    sub = client.post("/api/subjects", json={"code": "CS-DEL-TEST", "name": "Deletion Test"}).json()
+    sub = client.post("/api/subjects", json={"code": del_code, "name": "Deletion Test"}).json()
     sub_id = sub["id"]
 
     # Create 3 Practicals: #1, #2, #3

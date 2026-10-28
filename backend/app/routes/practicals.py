@@ -8,6 +8,15 @@ from ..database import get_db
 from ..models import Subject, Practical
 from ..schemas import PracticalBase, PracticalCreate, PracticalUpdate, PracticalOut
 from ..parser.language_detector import detect_language
+from ..firestore_service import (
+    is_firestore_active,
+    fs_get_subject_by_id,
+    fs_get_practicals_by_subject,
+    fs_get_practical_by_id,
+    fs_create_practical,
+    fs_update_practical,
+    fs_delete_practical,
+)
 
 router = APIRouter(tags=["Practicals"])
 
@@ -32,6 +41,12 @@ def get_practicals_by_subject(
     language: Optional[str] = Query(None, description="Filter by language"),
     db: Session = Depends(get_db),
 ):
+    if is_firestore_active():
+        subject = fs_get_subject_by_id(subject_id)
+        if not subject:
+            raise HTTPException(status_code=404, detail="Subject not found")
+        return fs_get_practicals_by_subject(subject_id, q=q, language=language)
+
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
@@ -54,15 +69,22 @@ def get_practicals_by_subject(
 
 @router.post("/api/subjects/{subject_id}/practicals", response_model=PracticalOut, status_code=status.HTTP_201_CREATED)
 def create_practical(subject_id: str, payload: PracticalBase, db: Session = Depends(get_db)):
-    subject = db.query(Subject).filter(Subject.id == subject_id).first()
-    if not subject:
-        raise HTTPException(status_code=404, detail="Subject not found")
-
-    # If language is 'text' or empty, auto-detect from code
+    # Auto-detect language if text/blank
     lang = payload.language or "text"
     if lang == "text" or not lang:
         detected_lang, _ = detect_language(payload.code)
         lang = detected_lang
+    payload.language = lang
+
+    if is_firestore_active():
+        subject = fs_get_subject_by_id(subject_id)
+        if not subject:
+            raise HTTPException(status_code=404, detail="Subject not found")
+        return fs_create_practical(subject_id, payload)
+
+    subject = db.query(Subject).filter(Subject.id == subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
 
     new_practical = Practical(
         subject_id=subject_id,
@@ -72,6 +94,7 @@ def create_practical(subject_id: str, payload: PracticalBase, db: Session = Depe
         language=lang,
         code=payload.code,
         tags=payload.tags or "",
+        discarded_output=payload.discarded_output or "",
     )
     db.add(new_practical)
     db.commit()
@@ -81,6 +104,12 @@ def create_practical(subject_id: str, payload: PracticalBase, db: Session = Depe
 
 @router.get("/api/practicals/{practical_id}", response_model=PracticalOut)
 def get_practical(practical_id: str, db: Session = Depends(get_db)):
+    if is_firestore_active():
+        p = fs_get_practical_by_id(practical_id)
+        if not p:
+            raise HTTPException(status_code=404, detail="Practical not found")
+        return p
+
     practical = db.query(Practical).filter(Practical.id == practical_id).first()
     if not practical:
         raise HTTPException(status_code=404, detail="Practical not found")
@@ -89,6 +118,16 @@ def get_practical(practical_id: str, db: Session = Depends(get_db)):
 
 @router.put("/api/practicals/{practical_id}", response_model=PracticalOut)
 def update_practical(practical_id: str, payload: PracticalUpdate, db: Session = Depends(get_db)):
+    if payload.code is not None and (payload.language in ("text", "", None)):
+        det, _ = detect_language(payload.code)
+        payload.language = det
+
+    if is_firestore_active():
+        p = fs_update_practical(practical_id, payload)
+        if not p:
+            raise HTTPException(status_code=404, detail="Practical not found")
+        return p
+
     practical = db.query(Practical).filter(Practical.id == practical_id).first()
     if not practical:
         raise HTTPException(status_code=404, detail="Practical not found")
@@ -103,12 +142,10 @@ def update_practical(practical_id: str, payload: PracticalUpdate, db: Session = 
         practical.language = payload.language.strip()
     if payload.code is not None:
         practical.code = payload.code
-        # Auto-detect language if currently generic text
-        if practical.language in ("text", "", None):
-            det, _ = detect_language(practical.code)
-            practical.language = det
     if payload.tags is not None:
         practical.tags = payload.tags
+    if payload.discarded_output is not None:
+        practical.discarded_output = payload.discarded_output
 
     db.commit()
     db.refresh(practical)
@@ -121,6 +158,12 @@ def delete_practical(
     renumber: bool = Query(False, description="Renumber subsequent practicals"),
     db: Session = Depends(get_db)
 ):
+    if is_firestore_active():
+        success = fs_delete_practical(practical_id, renumber=renumber)
+        if not success:
+            raise HTTPException(status_code=404, detail="Practical not found")
+        return None
+
     practical = db.query(Practical).filter(Practical.id == practical_id).first()
     if not practical:
         raise HTTPException(status_code=404, detail="Practical not found")
@@ -146,6 +189,18 @@ def delete_practical(
 
 @router.get("/api/practicals/{practical_id}/export")
 def export_practical_code(practical_id: str, db: Session = Depends(get_db)):
+    if is_firestore_active():
+        practical = fs_get_practical_by_id(practical_id)
+        if not practical:
+            raise HTTPException(status_code=404, detail="Practical not found")
+        ext = EXTENSION_MAP.get(practical.language.lower(), "txt")
+        filename = f"Practical_{practical.practical_number}_{practical.title.replace(' ', '_')[:30]}.{ext}"
+        return Response(
+            content=practical.code,
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
     practical = db.query(Practical).filter(Practical.id == practical_id).first()
     if not practical:
         raise HTTPException(status_code=404, detail="Practical not found")
@@ -162,15 +217,19 @@ def export_practical_code(practical_id: str, db: Session = Depends(get_db)):
 
 @router.get("/api/subjects/{subject_id}/export-zip")
 def export_subject_practicals_zip(subject_id: str, db: Session = Depends(get_db)):
-    subject = db.query(Subject).filter(Subject.id == subject_id).first()
-    if not subject:
-        raise HTTPException(status_code=404, detail="Subject not found")
-
-    practicals = db.query(Practical).filter(Practical.subject_id == subject_id).order_by(Practical.practical_number.asc()).all()
+    if is_firestore_active():
+        subject = fs_get_subject_by_id(subject_id)
+        if not subject:
+            raise HTTPException(status_code=404, detail="Subject not found")
+        practicals = fs_get_practicals_by_subject(subject_id)
+    else:
+        subject = db.query(Subject).filter(Subject.id == subject_id).first()
+        if not subject:
+            raise HTTPException(status_code=404, detail="Subject not found")
+        practicals = db.query(Practical).filter(Practical.subject_id == subject_id).order_by(Practical.practical_number.asc()).all()
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        # Add a README.md summary
         readme_lines = [
             f"# {subject.code} — {subject.name}",
             f"**Semester:** {subject.semester}",
