@@ -28,6 +28,8 @@ app.include_router(practicals.router)
 app.include_router(ingestion.router)
 
 
+@app.get("/")
+@app.get("/healthz")
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "service": "CS Practical Portal API"}
