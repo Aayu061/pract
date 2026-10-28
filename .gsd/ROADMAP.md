@@ -6,8 +6,8 @@ updated: 2026-10-28T07:49:00+05:30
 
 # Roadmap
 
-> **Current Phase:** Phase 1 - Backend & Parser Engine
-> **Status:** executing
+> **Current Phase:** Phase 4 - Audit Fixes, Real-World Parser Algorithm & In-Browser DOCX Viewer
+> **Status:** planned
 
 ## Must-Haves (from SPEC)
 - [ ] Backend FastAPI application with SQLite database
@@ -46,3 +46,15 @@ updated: 2026-10-28T07:49:00+05:30
 ### Phase 3: Integration, Polish & Verification
 **Status:** ✅ Complete
 **Objective:** End-to-end integration testing with sample lab manuals, export features (ZIP/code), and walkthrough documentation.
+
+---
+
+### Phase 4: Audit Fixes, Real-World Parser Algorithm & In-Browser DOCX Viewer
+**Status:** ⏳ Planned
+**Objective:** Resolve critical database model and schema defects, implement a multi-pass AST-driven lab manual parsing algorithm, and build an in-browser DOCX document viewing engine.
+
+**Plans:**
+- [ ] Plan 4.1: Database Model & Schema Correction (discarded_output fix, Document model, foreign keys)
+- [ ] Plan 4.2: Real-World AST-Driven DOCX Parser & Multi-Classifier Engine (Monospace, quote normalization, table de-duplication)
+- [ ] Plan 4.3: DOCX File Storage & In-Browser Interactive Document Viewer (Backend persistence & HTML render API, React DOCX Viewer Modal)
+
