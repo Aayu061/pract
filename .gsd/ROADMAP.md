@@ -57,4 +57,6 @@ updated: 2026-10-28T07:49:00+05:30
 - [ ] Plan 4.1: Database Model & Schema Correction (discarded_output fix, Document model, foreign keys)
 - [ ] Plan 4.2: Real-World AST-Driven DOCX Parser & Multi-Classifier Engine (Monospace, quote normalization, table de-duplication)
 - [ ] Plan 4.3: DOCX File Storage & In-Browser Interactive Document Viewer (Backend persistence & HTML render API, React DOCX Viewer Modal)
+- [ ] Plan 4.4: UI/UX Smooth Loading, Micro-Interactions & Transition Enhancements (Shimmer skeletons, motion easing, card entrance)
+
 
