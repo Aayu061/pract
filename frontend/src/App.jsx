@@ -31,6 +31,7 @@ export default function App() {
   const [selectedLanguage, setSelectedLanguage] = useState('All');
   const [toasts, setToasts] = useState([]);
   const [isLoadingPracticals, setIsLoadingPracticals] = useState(false);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
 
   // Modals
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
@@ -63,6 +64,7 @@ export default function App() {
 
   // Load subjects on mount
   const loadSubjects = useCallback(async () => {
+    setIsLoadingSubjects(true);
     try {
       const data = await getSubjects();
       setSubjects(data);
@@ -71,6 +73,8 @@ export default function App() {
       }
     } catch (err) {
       addToast(err.message || 'Error loading subjects', 'error');
+    } finally {
+      setIsLoadingSubjects(false);
     }
   }, [activeSubject, addToast]);
 
@@ -219,6 +223,7 @@ export default function App() {
         <SubjectSidebar
           subjects={subjects}
           activeSubject={activeSubject}
+          isLoading={isLoadingSubjects}
           onSelectSubject={(sub) => {
             setActiveSubject(sub);
             setSelectedLanguage('All');

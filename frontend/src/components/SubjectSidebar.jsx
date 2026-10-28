@@ -4,6 +4,7 @@ import { Layers, Plus, Trash2, FolderCode } from 'lucide-react';
 export default function SubjectSidebar({
   subjects,
   activeSubject,
+  isLoading = false,
   onSelectSubject,
   onOpenSubjectModal,
   onDeleteSubject,
@@ -26,7 +27,16 @@ export default function SubjectSidebar({
       </div>
 
       <div className="subject-nav-list">
-        {subjects.length === 0 ? (
+        {isLoading && subjects.length === 0 ? (
+          <div style={{ padding: '0.75rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} style={{ padding: '0.75rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)' }}>
+                <div className="skeleton-line" style={{ width: '40%', height: '14px', marginBottom: '0.5rem', borderRadius: '4px' }} />
+                <div className="skeleton-line" style={{ width: '80%', height: '16px', borderRadius: '4px' }} />
+              </div>
+            ))}
+          </div>
+        ) : subjects.length === 0 ? (
           <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
             <FolderCode size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.5 }} />
             <p>No subjects yet.</p>
