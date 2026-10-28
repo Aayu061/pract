@@ -161,3 +161,40 @@ def test_batch_commit_with_discarded_output_and_collision():
     # Clean up
     client.delete(f"/api/subjects/{sub_id}")
 
+
+def test_document_upload_and_html_viewer():
+    with open("sample_cs_lab_manual.docx", "rb") as f:
+        files = {
+            "file": ("sample_cs_lab_manual.docx", f, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        }
+        upload_res = client.post("/api/documents/upload", files=files)
+
+    assert upload_res.status_code == 201
+    doc_data = upload_res.json()
+    doc_id = doc_data["id"]
+    assert doc_data["filename"] == "sample_cs_lab_manual.docx"
+    assert "<h" in doc_data["html"]
+    assert len(doc_data["toc"]) > 0
+
+    # Test list documents
+    list_res = client.get("/api/documents")
+    assert list_res.status_code == 200
+    docs = list_res.json()
+    assert any(d["id"] == doc_id for d in docs)
+
+    # Test get HTML viewer content
+    html_res = client.get(f"/api/documents/{doc_id}/html")
+    assert html_res.status_code == 200
+    html_data = html_res.json()
+    assert "docx-heading" in html_data["html"]
+
+    # Test download
+    down_res = client.get(f"/api/documents/{doc_id}/download")
+    assert down_res.status_code == 200
+    assert len(down_res.content) > 100
+
+    # Clean up
+    del_res = client.delete(f"/api/documents/{doc_id}")
+    assert del_res.status_code == 204
+
+

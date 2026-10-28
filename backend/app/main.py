@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import CORS_ORIGINS
 from .database import engine, Base
-from .routes import subjects, practicals, ingestion
+from .routes import subjects, practicals, ingestion, documents
 
 # Initialize database schema
 Base.metadata.create_all(bind=engine)
@@ -26,6 +26,8 @@ app.add_middleware(
 app.include_router(subjects.router)
 app.include_router(practicals.router)
 app.include_router(ingestion.router)
+app.include_router(documents.router)
+
 
 
 @app.get("/")
