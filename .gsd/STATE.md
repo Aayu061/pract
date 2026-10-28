@@ -7,23 +7,25 @@ updated: 2026-10-28T08:11:00+05:30
 ## Current Position
 **Milestone:** MVP
 **Phase:** Phase 4: Audit Fixes, Real-World Parser Algorithm & In-Browser DOCX Viewer
-**Status:** ready for execution
-**Plan:** 4 plans defined across 3 waves (4.1, 4.2, 4.3, 4.4)
+**Status:** ✅ Complete
+**Plan:** All 4 plans completed across 3 waves (4.1, 4.2, 4.3, 4.4)
 
 ## Next Steps
-1. `/execute 4` to run all Phase 4 plans
-
-Completed end-to-end testing of backend FastAPI, SQLite models, 5-stage DOCX parsing & output elimination algorithm, React (Vite) frontend with modern Vanilla CSS design system, code editor, instant copy, and browser subagent verification.
+All planned phases are complete and verified. Run `python -m uvicorn app.main:app --port 8000` in `backend` and `npm run dev` in `frontend` for interactive usage.
 
 ## Active Decisions
 | Decision | Choice | Made | Affects |
 |----------|--------|------|---------|
 | Tech Stack | FastAPI (Python) + React (Vite) | 2026-10-28 | Whole Architecture |
 | Separation Workflow | Two-step preview with extracted code vs excluded output | 2026-10-28 | Ingestion UX & API |
-| Starter Data | Clean slate with user subjects + demo generator | 2026-10-28 | Database Seeding |
+| AST Parser | Python-docx XML AST + font detection + quote normalization | 2026-10-28 | Parser Engine |
+| Document Viewer | Server-side semantic HTML render with TOC outline & client paper zoom | 2026-10-28 | Document UI/UX |
+| UI/UX Motion | CSS spring easing, staggered card entrance, and shimmer skeleton system | 2026-10-28 | Frontend Experience |
 
 ## Verified Proofs
-- Pytest suite: 6/6 tests passing (`backend/tests/test_parser.py`, `backend/tests/test_api.py`)
-- End-to-end integration: `backend/tests/verify_e2e_ingestion.py` passed
-- Browser session recording: `portal_full_flow_1793154922374.webp`
-- Screenshots: `home_page_loaded`, `new_subject_modal`, `subject_created`, `practical_added_check`
+- Pytest suite: 13/13 tests passing (`backend/tests/test_parser.py`, `backend/tests/test_api.py`)
+- End-to-end frontend build: `npm run build` completed cleanly in 650ms
+- Table cell de-duplication: Verified with XML `_tc` identity tracking
+- Smart quote normalization: Word typographic quotes (`“`, `”`, `‘`, `’`) normalized to ASCII
+- Interactive DOCX Viewer: In-browser HTML rendering with TOC outline and zoom controls verified
+- Shimmer Skeletons: Zero layout shift verified during data fetching states
