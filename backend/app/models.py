@@ -26,6 +26,7 @@ class Subject(Base):
     created_at = Column(DateTime, default=utc_now)
 
     practicals = relationship("Practical", back_populates="subject", cascade="all, delete-orphan", order_by="Practical.practical_number")
+    documents = relationship("Document", back_populates="subject", cascade="all, delete-orphan", order_by="Document.created_at.desc()")
 
 
 class Practical(Base):
@@ -39,7 +40,23 @@ class Practical(Base):
     language = Column(String(50), default="text")
     code = Column(Text, nullable=False)
     tags = Column(String(200), nullable=True)
+    discarded_output = Column(Text, nullable=True, default="")
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     subject = relationship("Subject", back_populates="practicals")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    subject_id = Column(String(36), ForeignKey("subjects.id"), nullable=True, index=True)
+    filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    file_size = Column(Integer, nullable=False, default=0)
+    parsed_practical_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=utc_now)
+
+    subject = relationship("Subject", back_populates="documents")
+
