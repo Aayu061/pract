@@ -9,6 +9,8 @@ import SeparationPreviewModal from './components/SeparationPreviewModal';
 import SubjectModal from './components/SubjectModal';
 import ManualPracticalModal from './components/ManualPracticalModal';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
+import DocxViewerModal from './components/DocxViewerModal';
+import DocumentsListModal from './components/DocumentsListModal';
 import Toast from './components/Toast';
 import {
   getSubjects,
@@ -28,11 +30,14 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('All');
   const [toasts, setToasts] = useState([]);
+  const [isLoadingPracticals, setIsLoadingPracticals] = useState(false);
 
   // Modals
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
+  const [viewingDocData, setViewingDocData] = useState(null); // { id, filename }
   const [editingPractical, setEditingPractical] = useState(null);
   const [viewingPractical, setViewingPractical] = useState(null);
   const [previewData, setPreviewData] = useState(null);
@@ -79,6 +84,7 @@ export default function App() {
       setPracticals([]);
       return;
     }
+    setIsLoadingPracticals(true);
     try {
       const data = await getPracticals(activeSubject.id, {
         q: searchQuery,
@@ -86,6 +92,8 @@ export default function App() {
       setPracticals(data);
     } catch (err) {
       addToast(err.message || 'Error loading practicals', 'error');
+    } finally {
+      setIsLoadingPracticals(false);
     }
   }, [activeSubject, searchQuery, addToast]);
 
@@ -202,6 +210,7 @@ export default function App() {
         onOpenSubjectModal={() => setIsSubjectModalOpen(true)}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
         onOpenManualPracticalModal={() => setIsManualModalOpen(true)}
+        onOpenDocumentsModal={() => setIsDocumentsModalOpen(true)}
         activeSubject={activeSubject}
       />
 
@@ -223,6 +232,7 @@ export default function App() {
           <PracticalList
             subject={activeSubject}
             practicals={practicals}
+            isLoading={isLoadingPracticals}
             onCopyCode={handleCopyCode}
             onViewPractical={(p) => setViewingPractical(p)}
             onEditPractical={(p) => setEditingPractical(p)}
@@ -230,6 +240,7 @@ export default function App() {
             onDeleteSubject={handleRequestDeleteSubject}
             onOpenUploadModal={() => setIsUploadModalOpen(true)}
             onOpenManualModal={() => setIsManualModalOpen(true)}
+            onOpenDocumentsModal={() => setIsDocumentsModalOpen(true)}
             selectedLanguage={selectedLanguage}
             setSelectedLanguage={setSelectedLanguage}
           />
@@ -250,6 +261,10 @@ export default function App() {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onParsedResult={handleDocxParsed}
+        onViewDocument={(doc) => {
+          setViewingDocData(doc);
+          setIsUploadModalOpen(false);
+        }}
         activeSubject={activeSubject}
       />
 
@@ -260,6 +275,31 @@ export default function App() {
         activeSubject={activeSubject}
         onClose={() => setPreviewData(null)}
         onCommitSuccess={handleCommitSuccess}
+      />
+
+      <DocumentsListModal
+        isOpen={isDocumentsModalOpen}
+        activeSubject={activeSubject}
+        onClose={() => setIsDocumentsModalOpen(false)}
+        onViewDocument={(doc) => {
+          setViewingDocData(doc);
+          setIsDocumentsModalOpen(false);
+        }}
+        onExtractPracticals={(parsedData) => {
+          setPreviewData(parsedData);
+          setIsDocumentsModalOpen(false);
+        }}
+      />
+
+      <DocxViewerModal
+        isOpen={Boolean(viewingDocData)}
+        documentId={viewingDocData?.id}
+        documentFilename={viewingDocData?.filename}
+        onClose={() => setViewingDocData(null)}
+        onExtractPracticals={(parsedData) => {
+          setPreviewData(parsedData);
+          setViewingDocData(null);
+        }}
       />
 
       <ManualPracticalModal

@@ -119,3 +119,48 @@ export function getExportPracticalUrl(practicalId) {
 export function getExportSubjectZipUrl(subjectId) {
   return `${API_BASE}/subjects/${subjectId}/export-zip`;
 }
+
+// Documents (DOCX Viewer & Storage)
+export async function uploadDocument(file, subjectId = null) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (subjectId) {
+    formData.append('subject_id', subjectId);
+  }
+
+  const res = await fetch(`${API_BASE}/documents/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let errorMsg = 'Failed to upload and render document';
+    try {
+      const err = await res.json();
+      if (err.detail) errorMsg = err.detail;
+    } catch (_) {}
+    throw new Error(errorMsg);
+  }
+
+  return res.json();
+}
+
+export async function getDocuments(subjectId = null) {
+  const queryStr = subjectId ? `?subject_id=${subjectId}` : '';
+  return fetchJson(`${API_BASE}/documents${queryStr}`);
+}
+
+export async function getDocumentHtml(documentId) {
+  return fetchJson(`${API_BASE}/documents/${documentId}/html`);
+}
+
+export async function deleteDocument(documentId) {
+  return fetchJson(`${API_BASE}/documents/${documentId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function getDocumentDownloadUrl(documentId) {
+  return `${API_BASE}/documents/${documentId}/download`;
+}
+

@@ -9,6 +9,7 @@ export default function Navbar({
   onOpenSubjectModal,
   onOpenUploadModal,
   onOpenManualPracticalModal,
+  onOpenDocumentsModal,
   activeSubject,
 }) {
   const toggleTheme = () => {
@@ -38,6 +39,15 @@ export default function Navbar({
       </div>
 
       <div className="navbar-actions">
+        <button
+          className="btn btn-secondary"
+          onClick={onOpenDocumentsModal}
+          title="Browse and View Uploaded DOCX Manuals on Website"
+        >
+          <BookOpen size={16} />
+          <span>Manuals</span>
+        </button>
+
         <button
           className="btn btn-secondary"
           onClick={onOpenSubjectModal}

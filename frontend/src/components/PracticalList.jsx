@@ -10,12 +10,14 @@ import {
   Upload,
   Trash2,
   ExternalLink,
+  BookOpen,
 } from 'lucide-react';
 import { getExportPracticalUrl, getExportSubjectZipUrl } from '../services/api';
 
 export default function PracticalList({
   subject,
   practicals,
+  isLoading = false,
   onCopyCode,
   onViewPractical,
   onEditPractical,
@@ -23,9 +25,11 @@ export default function PracticalList({
   onDeleteSubject,
   onOpenUploadModal,
   onOpenManualModal,
+  onOpenDocumentsModal,
   selectedLanguage,
   setSelectedLanguage,
 }) {
+
   const [copiedId, setCopiedId] = useState(null);
 
   const handleCopy = (practical, e) => {
@@ -110,6 +114,14 @@ export default function PracticalList({
           </button>
 
           <button
+            className="btn btn-secondary"
+            onClick={onOpenDocumentsModal}
+            title="View original uploaded DOCX manuals on website"
+          >
+            <BookOpen size={16} /> View DOCX
+          </button>
+
+          <button
             className="btn btn-primary"
             onClick={onOpenUploadModal}
             title="Upload and separate docx lab manual"
@@ -160,7 +172,19 @@ export default function PracticalList({
       )}
 
       {/* Practicals Cards Grid */}
-      {filteredPracticals.length === 0 ? (
+      {isLoading ? (
+        <div className="practicals-grid">
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <div key={n} className="skeleton-card">
+              <div className="skeleton-line" style={{ width: '30%', height: '20px', marginBottom: '1rem', borderRadius: '4px' }} />
+              <div className="skeleton-line" style={{ width: '85%', height: '22px', marginBottom: '0.75rem', borderRadius: '4px' }} />
+              <div className="skeleton-line" style={{ width: '95%', height: '14px', marginBottom: '0.5rem', borderRadius: '4px' }} />
+              <div className="skeleton-line" style={{ width: '70%', height: '14px', marginBottom: '1rem', borderRadius: '4px' }} />
+              <div className="skeleton-code-box" style={{ height: '120px', marginTop: '0.5rem', borderRadius: '8px' }} />
+            </div>
+          ))}
+        </div>
+      ) : filteredPracticals.length === 0 ? (
         <div className="empty-state" style={{ padding: '3rem 1rem' }}>
           <Code2 size={40} style={{ opacity: 0.4 }} />
           <h3>No practicals found</h3>
@@ -180,14 +204,17 @@ export default function PracticalList({
         </div>
       ) : (
         <div className="practicals-grid">
-          {filteredPracticals.map((p) => {
+          {filteredPracticals.map((p, idx) => {
             const isCopied = copiedId === p.id;
             return (
               <div
                 key={p.id}
-                className="practical-card"
+                className="practical-card animate-card-entrance"
                 onClick={() => onViewPractical(p)}
-                style={{ cursor: 'pointer' }}
+                style={{
+                  cursor: 'pointer',
+                  animationDelay: `${Math.min(idx * 0.05, 0.4)}s`,
+                }}
               >
                 <div className="card-top">
                   <span className="practical-num-tag">
@@ -196,7 +223,7 @@ export default function PracticalList({
 
                   <div className="card-actions-quick" onClick={(e) => e.stopPropagation()}>
                     <button
-                      className="btn-icon"
+                      className={`btn-icon ${isCopied ? 'copied-bounce' : ''}`}
                       style={{ width: '32px', height: '32px' }}
                       onClick={(e) => handleCopy(p, e)}
                       title="Copy Code to Clipboard"

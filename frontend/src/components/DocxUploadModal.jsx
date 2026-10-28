@@ -1,16 +1,19 @@
 import React, { useState, useRef } from 'react';
 import { X, UploadCloud, FileText, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
-import { previewDocx } from '../services/api';
+import { previewDocx, uploadDocument } from '../services/api';
+import { BookOpen } from 'lucide-react';
 
 export default function DocxUploadModal({
   isOpen,
   onClose,
   onParsedResult,
+  onViewDocument,
   activeSubject,
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isViewing, setIsViewing] = useState(false);
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -49,21 +52,38 @@ export default function DocxUploadModal({
     setSelectedFile(file);
   };
 
+  const handleViewDirectly = async () => {
+    if (!selectedFile) return;
+    setIsViewing(true);
+    setError(null);
+
+    try {
+      const docResult = await uploadDocument(selectedFile, activeSubject?.id || null);
+      onClose();
+      if (onViewDocument) onViewDocument(docResult);
+    } catch (err) {
+      setError(err.message || 'Error processing document.');
+    } finally {
+      setIsViewing(false);
+    }
+  };
+
   const handleUploadAndAnalyze = async () => {
     if (!selectedFile) return;
     setIsLoading(true);
     setError(null);
 
     try {
-      const previewData = await previewDocx(selectedFile);
+      const docResult = await uploadDocument(selectedFile, activeSubject?.id || null);
       onClose();
-      onParsedResult(previewData);
+      onParsedResult(docResult.practicals_preview);
     } catch (err) {
       setError(err.message || 'Error parsing document.');
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -141,20 +161,41 @@ export default function DocxUploadModal({
           </div>
         </div>
 
-        <div className="modal-footer">
-          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isLoading}>
+        <div className="modal-footer" style={{ gap: '0.6rem' }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isLoading || isViewing}>
             Cancel
           </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleViewDirectly}
+            disabled={!selectedFile || isLoading || isViewing}
+            title="Read and view the formatted docx document in the browser"
+          >
+            {isViewing ? (
+              <>
+                <Loader2 size={16} className="spin-animation" />
+                <span>Opening Viewer...</span>
+              </>
+            ) : (
+              <>
+                <BookOpen size={16} />
+                <span>Read & View on Website</span>
+              </>
+            )}
+          </button>
+
           <button
             type="button"
             className="btn btn-primary"
             onClick={handleUploadAndAnalyze}
-            disabled={!selectedFile || isLoading}
+            disabled={!selectedFile || isLoading || isViewing}
           >
             {isLoading ? (
               <>
                 <Loader2 size={16} className="spin-animation" style={{ animation: 'spin 1s linear infinite' }} />
-                <span>Running Separation Algorithm...</span>
+                <span>Running Separation...</span>
               </>
             ) : (
               <>
@@ -164,6 +205,7 @@ export default function DocxUploadModal({
             )}
           </button>
         </div>
+
       </div>
     </div>
   );
