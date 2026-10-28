@@ -8,6 +8,7 @@ import DocxUploadModal from './components/DocxUploadModal';
 import SeparationPreviewModal from './components/SeparationPreviewModal';
 import SubjectModal from './components/SubjectModal';
 import ManualPracticalModal from './components/ManualPracticalModal';
+import DeleteConfirmModal from './components/DeleteConfirmModal';
 import Toast from './components/Toast';
 import {
   getSubjects,
@@ -35,6 +36,7 @@ export default function App() {
   const [editingPractical, setEditingPractical] = useState(null);
   const [viewingPractical, setViewingPractical] = useState(null);
   const [previewData, setPreviewData] = useState(null);
+  const [deleteModalTarget, setDeleteModalTarget] = useState(null); // { type: 'subject' | 'practical', item: object }
 
   const addToast = useCallback((message, type = 'success') => {
     const id = Date.now() + Math.random();
@@ -118,17 +120,40 @@ export default function App() {
     setActiveSubject(newSub);
   };
 
-  const handleDeleteSubject = async (subjectId) => {
-    try {
-      await deleteSubject(subjectId);
-      addToast('Subject and practicals deleted', 'info');
-      const updated = subjects.filter((s) => s.id !== subjectId);
-      setSubjects(updated);
-      if (activeSubject?.id === subjectId) {
-        setActiveSubject(updated.length > 0 ? updated[0] : null);
+  const handleRequestDeleteSubject = (subject) => {
+    setDeleteModalTarget({ type: 'subject', item: subject });
+  };
+
+  const handleRequestDeletePractical = (practical) => {
+    setDeleteModalTarget({ type: 'practical', item: practical });
+  };
+
+  const handleConfirmDelete = async (targetId, options = {}) => {
+    if (!deleteModalTarget) return;
+
+    if (deleteModalTarget.type === 'subject') {
+      try {
+        await deleteSubject(targetId);
+        addToast(`Subject "${deleteModalTarget.item.name}" deleted`, 'info');
+        const updated = subjects.filter((s) => s.id !== targetId);
+        setSubjects(updated);
+        if (activeSubject?.id === targetId) {
+          setActiveSubject(updated.length > 0 ? updated[0] : null);
+        }
+      } catch (err) {
+        addToast(err.message, 'error');
       }
-    } catch (err) {
-      addToast(err.message, 'error');
+    } else {
+      try {
+        await deletePractical(targetId, { renumber: options.renumber });
+        addToast(`Practical #${deleteModalTarget.item.practical_number} deleted`, 'info');
+        if (viewingPractical?.id === targetId) setViewingPractical(null);
+        if (editingPractical?.id === targetId) setEditingPractical(null);
+        await loadPracticals();
+        await loadSubjects();
+      } catch (err) {
+        addToast(err.message, 'error');
+      }
     }
   };
 
@@ -145,17 +170,6 @@ export default function App() {
     const updated = await updatePractical(practicalId, formData);
     addToast(`Practical #${updated.practical_number} updated!`, 'success');
     await loadPracticals();
-  };
-
-  const handleDeletePractical = async (practicalId) => {
-    try {
-      await deletePractical(practicalId);
-      addToast('Practical deleted', 'info');
-      await loadPracticals();
-      await loadSubjects();
-    } catch (err) {
-      addToast(err.message, 'error');
-    }
   };
 
   // Ingestion Handlers
@@ -201,7 +215,7 @@ export default function App() {
             setSelectedLanguage('All');
           }}
           onOpenSubjectModal={() => setIsSubjectModalOpen(true)}
-          onDeleteSubject={handleDeleteSubject}
+          onDeleteSubject={handleRequestDeleteSubject}
         />
 
         {/* Center Content */}
@@ -212,7 +226,8 @@ export default function App() {
             onCopyCode={handleCopyCode}
             onViewPractical={(p) => setViewingPractical(p)}
             onEditPractical={(p) => setEditingPractical(p)}
-            onDeletePractical={handleDeletePractical}
+            onDeletePractical={handleRequestDeletePractical}
+            onDeleteSubject={handleRequestDeleteSubject}
             onOpenUploadModal={() => setIsUploadModalOpen(true)}
             onOpenManualModal={() => setIsManualModalOpen(true)}
             selectedLanguage={selectedLanguage}
@@ -260,6 +275,7 @@ export default function App() {
         subject={activeSubject}
         onClose={() => setViewingPractical(null)}
         onEdit={(p) => setEditingPractical(p)}
+        onDelete={handleRequestDeletePractical}
         onCopyCode={handleCopyCode}
       />
 
@@ -268,6 +284,15 @@ export default function App() {
         practical={editingPractical}
         onClose={() => setEditingPractical(null)}
         onSave={handleUpdatePractical}
+        onDelete={handleRequestDeletePractical}
+      />
+
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteModalTarget)}
+        type={deleteModalTarget?.type || 'practical'}
+        targetItem={deleteModalTarget?.item}
+        onClose={() => setDeleteModalTarget(null)}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

@@ -76,3 +76,30 @@ def test_subject_and_practical_flow():
     # 7. Delete subject
     del_sub_res = client.delete(f"/api/subjects/{subject_id}")
     assert del_sub_res.status_code == 204
+
+
+def test_deletion_with_renumbering():
+    # Create Subject
+    sub = client.post("/api/subjects", json={"code": "CS-DEL-TEST", "name": "Deletion Test"}).json()
+    sub_id = sub["id"]
+
+    # Create 3 Practicals: #1, #2, #3
+    p1 = client.post(f"/api/subjects/{sub_id}/practicals", json={"practical_number": 1, "title": "P1", "code": "x = 1"}).json()
+    p2 = client.post(f"/api/subjects/{sub_id}/practicals", json={"practical_number": 2, "title": "P2", "code": "x = 2"}).json()
+    p3 = client.post(f"/api/subjects/{sub_id}/practicals", json={"practical_number": 3, "title": "P3", "code": "x = 3"}).json()
+
+    # Delete Practical #2 with renumber=true
+    del_res = client.delete(f"/api/practicals/{p2['id']}?renumber=true")
+    assert del_res.status_code == 204
+
+    # Fetch practicals: should be 2 remaining, and P3 should now be renumbered to practical_number: 2
+    remaining = client.get(f"/api/subjects/{sub_id}/practicals").json()
+    assert len(remaining) == 2
+    assert remaining[0]["title"] == "P1"
+    assert remaining[0]["practical_number"] == 1
+    assert remaining[1]["title"] == "P3"
+    assert remaining[1]["practical_number"] == 2
+
+    # Clean up subject (tests atomic cascade deletion)
+    del_sub = client.delete(f"/api/subjects/{sub_id}")
+    assert del_sub.status_code == 204

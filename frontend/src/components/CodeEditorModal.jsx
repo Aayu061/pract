@@ -6,6 +6,7 @@ export default function CodeEditorModal({
   isOpen,
   onClose,
   onSave,
+  onDelete,
 }) {
   const [title, setTitle] = useState('');
   const [practicalNumber, setPracticalNumber] = useState(1);
@@ -138,6 +139,19 @@ export default function CodeEditorModal({
           </div>
 
           <div className="modal-footer">
+            {onDelete && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ color: 'var(--danger)', marginRight: 'auto' }}
+                onClick={() => {
+                  onClose();
+                  onDelete(practical);
+                }}
+              >
+                Delete Practical
+              </button>
+            )}
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               Cancel
             </button>

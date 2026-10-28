@@ -115,11 +115,30 @@ def update_practical(practical_id: str, payload: PracticalUpdate, db: Session = 
 
 
 @router.delete("/api/practicals/{practical_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_practical(practical_id: str, db: Session = Depends(get_db)):
+def delete_practical(
+    practical_id: str,
+    renumber: bool = Query(False, description="Renumber subsequent practicals"),
+    db: Session = Depends(get_db)
+):
     practical = db.query(Practical).filter(Practical.id == practical_id).first()
     if not practical:
         raise HTTPException(status_code=404, detail="Practical not found")
+    
+    subject_id = practical.subject_id
+    p_num = practical.practical_number
+
     db.delete(practical)
+
+    if renumber:
+        # Shift down subsequent practical numbers by 1
+        db.query(Practical).filter(
+            Practical.subject_id == subject_id,
+            Practical.practical_number > p_num
+        ).update(
+            {Practical.practical_number: Practical.practical_number - 1},
+            synchronize_session=False
+        )
+
     db.commit()
     return None
 

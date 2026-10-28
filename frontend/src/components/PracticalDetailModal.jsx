@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Edit3, Download, Code2, Tag } from 'lucide-react';
+import { X, Copy, Check, Edit3, Download, Trash2 } from 'lucide-react';
 import { getExportPracticalUrl } from '../services/api';
 
 export default function PracticalDetailModal({
@@ -7,6 +7,7 @@ export default function PracticalDetailModal({
   subject,
   onClose,
   onEdit,
+  onDelete,
   onCopyCode,
 }) {
   const [copied, setCopied] = useState(false);
@@ -63,6 +64,20 @@ export default function PracticalDetailModal({
               <Download size={16} />
               <span>Download</span>
             </a>
+
+            {onDelete && (
+              <button
+                className="btn btn-ghost"
+                style={{ color: 'var(--danger)' }}
+                onClick={() => {
+                  onClose();
+                  onDelete(practical);
+                }}
+                title="Delete Practical"
+              >
+                Delete
+              </button>
+            )}
 
             <button className="btn-icon" onClick={onClose}>
               <X size={18} />

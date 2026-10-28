@@ -1,27 +1,27 @@
 ---
-updated: 2026-10-28T07:49:00+05:30
+updated: 2026-10-28T08:11:00+05:30
 ---
 
 # Project State
 
 ## Current Position
 **Milestone:** MVP
-**Phase:** 1 - Backend & Parser Engine
-**Status:** executing
-**Plan:** Plan 1.1 & Plan 1.2
+**Phase:** Completed
+**Status:** complete
+**Plan:** All phases executed and verified
 
 ## Last Action
-Approved implementation plan and initialized Git repository & GSD specification.
-
-## Next Steps
-1. Set up backend virtual environment and install requirements (FastAPI, uvicorn, python-docx, sqlalchemy, etc.)
-2. Implement database models, schemas, and routes
-3. Implement core DOCX separation algorithm & output elimination engine
-4. Write and execute automated pytest suite
+Completed end-to-end testing of backend FastAPI, SQLite models, 5-stage DOCX parsing & output elimination algorithm, React (Vite) frontend with modern Vanilla CSS design system, code editor, instant copy, and browser subagent verification.
 
 ## Active Decisions
 | Decision | Choice | Made | Affects |
 |----------|--------|------|---------|
 | Tech Stack | FastAPI (Python) + React (Vite) | 2026-10-28 | Whole Architecture |
 | Separation Workflow | Two-step preview with extracted code vs excluded output | 2026-10-28 | Ingestion UX & API |
-| Starter Data | Clean slate (zero initial dummy records) | 2026-10-28 | Database Seeding |
+| Starter Data | Clean slate with user subjects + demo generator | 2026-10-28 | Database Seeding |
+
+## Verified Proofs
+- Pytest suite: 6/6 tests passing (`backend/tests/test_parser.py`, `backend/tests/test_api.py`)
+- End-to-end integration: `backend/tests/verify_e2e_ingestion.py` passed
+- Browser session recording: `portal_full_flow_1793154922374.webp`
+- Screenshots: `home_page_loaded`, `new_subject_modal`, `subject_created`, `practical_added_check`

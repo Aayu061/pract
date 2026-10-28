@@ -74,8 +74,9 @@ export async function updatePractical(practicalId, data) {
   });
 }
 
-export async function deletePractical(practicalId) {
-  return fetchJson(`${API_BASE}/practicals/${practicalId}`, {
+export async function deletePractical(practicalId, { renumber = false } = {}) {
+  const queryStr = renumber ? '?renumber=true' : '';
+  return fetchJson(`${API_BASE}/practicals/${practicalId}${queryStr}`, {
     method: 'DELETE',
   });
 }

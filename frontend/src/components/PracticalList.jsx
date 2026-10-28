@@ -20,6 +20,7 @@ export default function PracticalList({
   onViewPractical,
   onEditPractical,
   onDeletePractical,
+  onDeleteSubject,
   onOpenUploadModal,
   onOpenManualModal,
   selectedLanguage,
@@ -126,6 +127,15 @@ export default function PracticalList({
               <FileArchive size={16} /> Export ZIP
             </a>
           )}
+
+          <button
+            className="btn btn-ghost"
+            style={{ color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+            onClick={() => onDeleteSubject(subject)}
+            title="Delete this entire subject and all experiments"
+          >
+            <Trash2 size={16} /> Delete Subject
+          </button>
         </div>
       </div>
 
@@ -216,11 +226,7 @@ export default function PracticalList({
                     <button
                       className="btn-icon"
                       style={{ width: '32px', height: '32px', color: 'var(--danger)' }}
-                      onClick={() => {
-                        if (window.confirm(`Delete Practical #${p.practical_number}: "${p.title}"?`)) {
-                          onDeletePractical(p.id);
-                        }
-                      }}
+                      onClick={() => onDeletePractical(p)}
                       title="Delete Practical"
                     >
                       <Trash2 size={14} />

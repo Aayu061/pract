@@ -120,6 +120,9 @@ def delete_subject(subject_id: str, db: Session = Depends(get_db)):
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
+    
+    # Explicitly remove all child practicals first to guarantee atomic cascade in SQLite
+    db.query(Practical).filter(Practical.subject_id == subject_id).delete(synchronize_session=False)
     db.delete(subject)
     db.commit()
     return None

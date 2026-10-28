@@ -62,9 +62,7 @@ export default function SubjectSidebar({
                     style={{ padding: '0.25rem', borderRadius: '4px', color: 'var(--text-dim)' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (window.confirm(`Delete subject "${sub.name}" and all its practicals?`)) {
-                        onDeleteSubject(sub.id);
-                      }
+                      onDeleteSubject(sub);
                     }}
                     title="Delete Subject"
                   >
