@@ -20,6 +20,7 @@ EXTENSION_MAP = {
     "javascript": "js",
     "html": "html",
     "bash": "sh",
+    "r": "R",
     "text": "txt",
 }
 

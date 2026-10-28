@@ -56,6 +56,16 @@ LANGUAGE_SIGNATURES: Dict[str, list[re.Pattern]] = {
         re.compile(r"=>\s*\{"),
         re.compile(r"\baddEventListener\s*\("),
     ],
+    "r": [
+        re.compile(r"<-"),
+        re.compile(r"\bc\s*\([^)]*\)"),
+        re.compile(r"\bdata\.frame\s*\("),
+        re.compile(r"\blibrary\s*\("),
+        re.compile(r"\b(?:barplot|boxplot|hist|plot|pie|abline)\s*\("),
+        re.compile(r"\b(?:summary|str|head|tail|dim|nrow|ncol)\s*\("),
+        re.compile(r"\b(?:lm|glm|predict|anova|confint|cor)\s*\("),
+        re.compile(r"\bcat\s*\("),
+    ],
     "html": [
         re.compile(r"<!DOCTYPE\s+html>", re.IGNORECASE),
         re.compile(r"<html\b[^>]*>", re.IGNORECASE),

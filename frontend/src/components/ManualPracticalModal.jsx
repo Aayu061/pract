@@ -105,6 +105,7 @@ export default function ManualPracticalModal({
                   <option value="python">Python</option>
                   <option value="java">Java</option>
                   <option value="sql">SQL</option>
+                  <option value="r">R</option>
                   <option value="javascript">JavaScript</option>
                   <option value="html">HTML</option>
                   <option value="bash">Bash</option>

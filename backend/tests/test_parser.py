@@ -46,6 +46,17 @@ def test_language_detection():
     assert lang == "sql"
     assert conf > 70
 
+    r_code = """
+    x <- c(10, 20, 30, 40)
+    y <- c(15, 25, 35, 45)
+    plot(x, y, main="Scatterplot", col="blue", pch=19)
+    df <- data.frame(name=c("A", "B"), score=x[1:2])
+    summary(df)
+    """
+    lang, conf = detect_language(r_code)
+    assert lang == "r"
+    assert conf > 70
+
 
 def test_strip_line_numbering():
     numbered_lines = [
@@ -74,6 +85,70 @@ def test_partition_code_and_output():
     assert "#include <iostream>" in code
     assert len(output) == 3
     assert "Array elements: 10 20 30" in output
+
+
+def test_interleaved_multi_cycle_code_output():
+    """Verify that multiple code-output-code cycles are preserved (e.g. EXP #2 line graph + scatterplot)."""
+    raw_lines = [
+        "# Line Graph",
+        "x <- c(1, 2, 3, 4, 5)",
+        "plot(x, type='o', col='blue')",
+        "Output:",
+        "[Graph window rendered]",
+        "# Scatterplot",
+        "y <- c(10, 20, 30, 40, 50)",
+        "plot(x, y, pch=19)",
+        "Output:",
+        "[Scatterplot rendered]",
+        "# Boxplot",
+        "boxplot(x, col='green')"
+    ]
+    code, output = partition_code_and_output(raw_lines)
+    code_text = "\n".join(code)
+    output_text = "\n".join(output)
+
+    # All 3 sub-experiments must be in code
+    assert "Line Graph" in code_text
+    assert "plot(x, type='o', col='blue')" in code_text
+    assert "Scatterplot" in code_text
+    assert "plot(x, y, pch=19)" in code_text
+    assert "Boxplot" in code_text
+    assert "boxplot(x, col='green')" in code_text
+
+    # Outputs must be segregated
+    assert "[Graph window rendered]" in output_text
+    assert "[Scatterplot rendered]" in output_text
+    assert "[Graph window rendered]" not in code_text
+    assert "[Scatterplot rendered]" not in code_text
+
+
+def test_repl_prompt_sanitization():
+    """Verify R console prompts (>, +) and console outputs ([1]) are handled properly."""
+    raw_lines = [
+        "> age <- c(22, 25, 28, 32)",
+        "> weight <- c(65, 70, 72, 80)",
+        "> cor(age, weight)",
+        "[1] 0.99868",
+        "> summary_stats <- function(v) {",
+        "+   list(mean = mean(v), sd = sd(v))",
+        "+ }"
+    ]
+    code, output = partition_code_and_output(raw_lines)
+    code_text = "\n".join(code)
+    output_text = "\n".join(output)
+
+    # Prompts must be stripped
+    assert "age <- c(22, 25, 28, 32)" in code_text
+    assert "weight <- c(65, 70, 72, 80)" in code_text
+    assert "cor(age, weight)" in code_text
+    assert "summary_stats <- function(v) {" in code_text
+    assert "list(mean = mean(v), sd = sd(v))" in code_text
+    assert not any(l.startswith("> ") for l in code)
+    assert not any(l.startswith("+ ") for l in code)
+
+    # Vector output index must be in output
+    assert "[1] 0.99868" in output_text
+    assert "[1] 0.99868" not in code_text
 
 
 def test_full_docx_multi_practical_parsing():

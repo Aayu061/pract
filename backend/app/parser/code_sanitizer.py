@@ -3,28 +3,52 @@ from typing import Tuple, List, Optional
 
 # Regex patterns that indicate transition to output/execution section
 OUTPUT_BOUNDARY_PATTERNS = [
-    re.compile(r"^\s*(?:sample\s+|program\s+|expected\s+|terminal\s+)?(?:execution\s+)?(?:output|result|run|screen|screenshot)(?:\s+(?:output|result|screen|log|image))?\s*[:\-]", re.IGNORECASE),
+    re.compile(r"^\s*(?:sample\s+|program\s+|expected\s+|terminal\s+)?(?:execution\s+)?(?:output|result|run|screen|screenshot)(?:\s+(?:output|result|screen|log|image))?\s*[:\-]?$", re.IGNORECASE),
     re.compile(r"^\s*(?:output\s*screens?|screenshot\s*of\s*output)\b", re.IGNORECASE),
     re.compile(r"^\s*(?:sample\s+output|execution\s+output|program\s+output|terminal\s+output|output\s+result)\b", re.IGNORECASE),
 ]
 
-# Patterns representing non-code terminal output lines
-TERMINAL_INDICATORS = [
-    re.compile(r"^\s*(?:>>>|\.\.\.|\$|#|C:\\[^>]+>)\s+"),
-    re.compile(r"^\s*Process finished with exit code \d+", re.IGNORECASE),
-    re.compile(r"^\s*\[Done\] exited with code=\d+", re.IGNORECASE),
-    re.compile(r"^\s*Compilation succeeded", re.IGNORECASE),
-    re.compile(r"^\s*Enter\s+(?:the\s+)?(?:number|elements?|choice|value|array)\s*:\s*\d+", re.IGNORECASE),
+# Patterns that indicate a return to CODE from OUTPUT (interleaved sub-experiments)
+CODE_BOUNDARY_PATTERNS = [
+    re.compile(r"^\s*(?:code|source\s+code|program|implementation|(?:c|c\+\+|cpp|python|java|sql|javascript|bash|r)?\s*(?:script|code))\s*[:\-]?$", re.IGNORECASE),
+]
+
+# Subtask headings inside a practical, e.g. '# Line Graph', '# scatterplot', '# Boxplot', '# 1. Bubble Sort'
+SUBTASK_HEADER_PATTERN = re.compile(
+    r"^\s*#+\s*([A-Za-z0-9_\-\s\(\)\:\.]+)\s*$"
+)
+
+# Common REPL prompt lines indicating active code
+REPL_PROMPT_PATTERNS = [
+    re.compile(r"^\s*(?:>|\+)\s*(.*)$"),           # R console prompt
+    re.compile(r"^\s*(?:>>>|\.\.\.)\s+(.*)$"),      # Python REPL prompt
+]
+
+# Obvious terminal / console output lines
+CONSOLE_OUTPUT_PATTERNS = [
+    re.compile(r"^\s*\[\d+\]\s+"),                                  # R vector output: [1] "Payal"
+    re.compile(r"^\s*\[\d+,\s*\]"),                                 # R matrix output: [1,] 1 3
+    re.compile(r"^\s*,\s*,\s*\d+"),                                 # R array slice: , , 1
+    re.compile(r"^\s*(?:Min\.|1st Qu\.|Median|Mean|3rd Qu\.|Max\.)\s*:"), # R summary
+    re.compile(r"^\s*'data\.frame':\s+\d+\s+obs"),                  # R str() output
+    re.compile(r"^\s*\$\s*[A-Za-z_]\w*\s*:"),                       # R list/dataframe member output
+    re.compile(r"^\s*(?:Waiting to confirm page change\.\.\.|Process finished with exit code \d+|\[Done\] exited with code=\d+)"),
+    re.compile(r"^\s*correlation\s*=\s*[\d\.\-]+"),
 ]
 
 AIM_PATTERNS = [
     re.compile(r"^\s*(?:aim|objective|title|problem\s+statement|problem)\s*[:\-]\s*(.+)", re.IGNORECASE),
-    re.compile(r"^\s*write\s+a\s+(?:c|cpp|c\+\+|java|python|sql|program|script)\b.+", re.IGNORECASE),
+    re.compile(r"^\s*write\s+a\s+(?:c|cpp|c\+\+|java|python|sql|r|program|script)\b.+", re.IGNORECASE),
 ]
 
 THEORY_PATTERNS = [
     re.compile(r"^\s*(?:theory|algorithm|flowchart|steps|procedure|description)\s*[:\-]", re.IGNORECASE),
 ]
+
+STRONG_CODE_KEYWORDS = re.compile(
+    r"^(?:#\s*include|import\s+|from\s+|def\s+|class\s+|public\s+class|public\s+static|<!DOCTYPE|<html|\bint\s+main\b|\bCREATE\s+TABLE|\bSELECT\b|/\*|//|#!\s*/bin|\bplot\s*\(|\bbarplot\s*\(|\bdata\.frame\s*\(|\blibrary\s*\()",
+    re.IGNORECASE
+)
 
 
 def strip_line_numbering(lines: List[str]) -> List[str]:
@@ -56,68 +80,66 @@ def strip_line_numbering(lines: List[str]) -> List[str]:
     return lines
 
 
-def partition_code_and_output(raw_lines: List[str]) -> Tuple[List[str], List[str]]:
+def clean_repl_prompt(line: str) -> str:
     """
-    Splits text stream into:
-    (code_lines, discarded_output_lines)
-    Strictly cuts off and drops output from the code lines.
+    Strips leading REPL prompt artifacts (like R '>' or '+', Python '>>>')
+    while preserving clean indentation.
     """
-    code_lines: List[str] = []
-    output_lines: List[str] = []
-    in_output_section = False
+    # Leading R prompt: '> ', '> > ', '> '
+    cleaned = re.sub(r"^\s*(?:>\s*)+", "", line)
+    if cleaned != line:
+        return cleaned
 
-    for line in raw_lines:
-        line_stripped = line.strip()
+    # R continuation prompt: '+ ' -> replace with 4 spaces indent
+    m_plus = re.match(r"^\s*\+\s*(.*)$", line)
+    if m_plus:
+        return "    " + m_plus.group(1)
 
-        # Check if line indicates start of output section
-        if not in_output_section:
-            for pat in OUTPUT_BOUNDARY_PATTERNS:
-                if pat.search(line_stripped):
-                    in_output_section = True
-                    output_lines.append(line)
-                    break
-            if in_output_section:
-                continue
+    # Python prompt: '>>> '
+    cleaned_py = re.sub(r"^\s*>>>\s*", "", line)
+    if cleaned_py != line:
+        return cleaned_py
 
-        if in_output_section:
-            output_lines.append(line)
-        else:
-            code_lines.append(line)
+    # Python continuation: '... '
+    cleaned_dots = re.sub(r"^\s*\.\.\.\s*", "    ", line)
+    if cleaned_dots != line:
+        return cleaned_dots
 
-    return code_lines, output_lines
+    return line
 
 
 def extract_metadata_and_clean_code(raw_lines: List[str]) -> Tuple[str, str, str, str]:
     """
-    Extracts:
-    - title / aim
-    - description (theory/algorithm)
-    - clean_code (only pure code)
-    - discarded_output (what was filtered out)
-    """
-    # 1. Partition into candidate code vs output
-    candidate_code_lines, output_lines = partition_code_and_output(raw_lines)
+    Enhanced Multi-Cycle State-Machine Parser:
+    Seamlessly parses practicals with multiple interleaved sub-experiments:
+    [Subtask 1: Code -> Output] -> [Subtask 2: Code -> Output] -> [Subtask 3: Code -> Output]
 
+    Returns:
+    - title / aim
+    - description (theory/objective notes)
+    - clean_code (all clean code blocks aggregated across subtasks)
+    - discarded_output (all segregated output blocks, tables, and console dumps)
+    """
     extracted_title = ""
     description_lines: List[str] = []
-    final_code_lines: List[str] = []
-    in_theory_section = False
-    in_code_started = False
+    clean_code_lines: List[str] = []
+    discarded_output_lines: List[str] = []
 
-    # Heuristic: Find first Aim / Title and skip theory until code begins
-    code_start_keywords = re.compile(
-        r"^(?:#\s*include|import\s+|from\s+|def\s+|class\s+|public\s+class|public\s+static|<!DOCTYPE|<html|\bint\s+main\b|\bCREATE\s+TABLE|\bSELECT\b|/\*|//|#!\s*/bin)",
-        re.IGNORECASE
-    )
+    # States: 'PREAMBLE', 'CODE', 'OUTPUT'
+    state = "PREAMBLE"
 
-    for line in candidate_code_lines:
+    for line in raw_lines:
         line_str = line.strip()
+
+        # Handle blank lines
         if not line_str:
-            if in_code_started:
-                final_code_lines.append(line)
+            if state == "CODE" and clean_code_lines and clean_code_lines[-1] != "":
+                clean_code_lines.append("")
+            elif state == "OUTPUT" and discarded_output_lines and discarded_output_lines[-1] != "":
+                discarded_output_lines.append("")
             continue
 
-        # Check for Aim / Title
+        # 1. Aim / Title Detection (if in PREAMBLE or if not yet set)
         if not extracted_title:
             for pat in AIM_PATTERNS:
                 m = pat.match(line_str)
@@ -127,35 +149,84 @@ def extract_metadata_and_clean_code(raw_lines: List[str]) -> Tuple[str, str, str
             if extracted_title:
                 continue
 
-        # Check for Theory / Algorithm heading
+        # 2. Theory / Algorithm header detection
         is_theory_heading = any(p.match(line_str) for p in THEORY_PATTERNS)
         if is_theory_heading:
-            in_theory_section = True
             description_lines.append(line_str)
             continue
 
-        # Check for explicit code markers (e.g. Source Code:, SQL Script:, Program:)
-        if re.match(r"^\s*(?:code|source\s+code|program|implementation|(?:c|c\+\+|cpp|python|java|sql|javascript|bash)?\s*(?:script|code))\s*[:\-]?$", line_str, re.IGNORECASE):
-            in_theory_section = False
-            in_code_started = True
+        # 3. Explicit OUTPUT Marker Transition
+        is_output_marker = any(p.match(line_str) for p in OUTPUT_BOUNDARY_PATTERNS)
+        if is_output_marker:
+            state = "OUTPUT"
+            discarded_output_lines.append(line)
             continue
 
-        # Check if code syntax has started
-        if code_start_keywords.search(line_str):
-            in_theory_section = False
-            in_code_started = True
+        # 4. Explicit CODE Marker Transition (e.g. 'Code:', 'Source Code:')
+        is_code_marker = any(p.match(line_str) for p in CODE_BOUNDARY_PATTERNS)
+        if is_code_marker:
+            state = "CODE"
+            continue
 
-        if in_theory_section and not in_code_started:
-            description_lines.append(line_str)
+        # 5. Sub-Task / Experiment Section Transition (e.g. '# Line Graph', '# scatterplot', '# Boxplot')
+        subtask_match = SUBTASK_HEADER_PATTERN.match(line_str)
+        if subtask_match:
+            state = "CODE"
+            subtask_name = subtask_match.group(1).strip()
+            if clean_code_lines and clean_code_lines[-1] != "":
+                clean_code_lines.append("")
+            clean_code_lines.append(f"# --- {subtask_name} ---")
+            continue
+
+        # 6. Check for REPL Prompt or Strong Code Keywords (Transitions from OUTPUT back to CODE)
+        has_repl_prompt = any(p.match(line) for p in REPL_PROMPT_PATTERNS)
+        has_strong_code = STRONG_CODE_KEYWORDS.search(line_str) is not None
+
+        if state == "OUTPUT" and (has_repl_prompt or has_strong_code):
+            state = "CODE"
+
+        # 7. In PREAMBLE: if we see code or prompts, switch to CODE
+        if state == "PREAMBLE":
+            if has_repl_prompt or has_strong_code:
+                state = "CODE"
+            else:
+                # Capture initial title if line is not aim
+                if not extracted_title and len(line_str) > 3 and not line_str.startswith("#"):
+                    extracted_title = line_str
+                    continue
+                description_lines.append(line_str)
+                continue
+
+        # 8. Filter console output patterns even if mixed into CODE state
+        if state == "CODE":
+            is_console_out = any(p.search(line_str) for p in CONSOLE_OUTPUT_PATTERNS)
+            if is_console_out:
+                discarded_output_lines.append(line)
+                continue
+
+        # 9. Route according to active state
+        if state == "OUTPUT":
+            discarded_output_lines.append(line)
         else:
-            in_code_started = True
-            final_code_lines.append(line)
+            # Clean REPL prompt artifacts (like '> ', '+ ')
+            clean_line = clean_repl_prompt(line)
+            clean_code_lines.append(clean_line)
 
-    # Clean line numbers from code lines
-    final_code_lines = strip_line_numbering(final_code_lines)
+    # Clean line numbers from copy-pasted blocks
+    clean_code_lines = strip_line_numbering(clean_code_lines)
 
-    clean_code = "\n".join(final_code_lines).strip()
-    clean_output = "\n".join(output_lines).strip()
+    clean_code = "\n".join(clean_code_lines).strip()
+    clean_output = "\n".join(discarded_output_lines).strip()
     description = "\n".join(description_lines).strip()
 
     return extracted_title, description, clean_code, clean_output
+
+
+def partition_code_and_output(raw_lines: List[str]) -> Tuple[List[str], List[str]]:
+    """
+    Convenience wrapper for partitioning raw lines into code lines and output lines.
+    """
+    _, _, clean_code, clean_output = extract_metadata_and_clean_code(raw_lines)
+    code_lines = clean_code.splitlines() if clean_code else []
+    output_lines = clean_output.splitlines() if clean_output else []
+    return code_lines, output_lines
