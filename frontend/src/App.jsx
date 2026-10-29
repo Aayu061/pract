@@ -4,7 +4,8 @@ import SubjectSidebar from './components/SubjectSidebar';
 import PracticalList from './components/PracticalList';
 import PracticalDetailModal from './components/PracticalDetailModal';
 import CodeEditorModal from './components/CodeEditorModal';
-import DocxUploadModal from './components/DocxUploadModal';
+import DocsToCodeModal from './components/DocsToCodeModal';
+import DocxViewerUploadModal from './components/DocxViewerUploadModal';
 import SeparationPreviewModal from './components/SeparationPreviewModal';
 import SubjectModal from './components/SubjectModal';
 import ManualPracticalModal from './components/ManualPracticalModal';
@@ -28,6 +29,7 @@ export default function App() {
   const [activeSubject, setActiveSubject] = useState(null);
   const [practicals, setPracticals] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('All');
   const [toasts, setToasts] = useState([]);
   const [isLoadingPracticals, setIsLoadingPracticals] = useState(false);
@@ -35,7 +37,8 @@ export default function App() {
 
   // Modals
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isDocsToCodeOpen, setIsDocsToCodeOpen] = useState(false);
+  const [isDocxViewerUploadOpen, setIsDocxViewerUploadOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
   const [viewingDocData, setViewingDocData] = useState(null); // { id, filename }
@@ -62,6 +65,14 @@ export default function App() {
     localStorage.setItem('cs_theme', theme);
   }, [theme]);
 
+  // Debounce search query to prevent hammering API
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Load subjects on mount
   const loadSubjects = useCallback(async () => {
     setIsLoadingSubjects(true);
@@ -82,7 +93,7 @@ export default function App() {
     loadSubjects();
   }, [loadSubjects]);
 
-  // Load practicals whenever activeSubject or searchQuery changes
+  // Load practicals whenever activeSubject or debouncedSearchQuery changes
   const loadPracticals = useCallback(async () => {
     if (!activeSubject) {
       setPracticals([]);
@@ -91,7 +102,7 @@ export default function App() {
     setIsLoadingPracticals(true);
     try {
       const data = await getPracticals(activeSubject.id, {
-        q: searchQuery,
+        q: debouncedSearchQuery,
       });
       setPracticals(data);
     } catch (err) {
@@ -99,7 +110,39 @@ export default function App() {
     } finally {
       setIsLoadingPracticals(false);
     }
-  }, [activeSubject, searchQuery, addToast]);
+  }, [activeSubject, debouncedSearchQuery, addToast]);
+
+  // Global Escape key listener to close active modals
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (viewingPractical) setViewingPractical(null);
+        else if (editingPractical) setEditingPractical(null);
+        else if (deleteModalTarget) setDeleteModalTarget(null);
+        else if (viewingDocData) setViewingDocData(null);
+        else if (previewData) setPreviewData(null);
+        else if (isDocumentsModalOpen) setIsDocumentsModalOpen(false);
+        else if (isDocsToCodeOpen) setIsDocsToCodeOpen(false);
+        else if (isDocxViewerUploadOpen) setIsDocxViewerUploadOpen(false);
+        else if (isManualModalOpen) setIsManualModalOpen(false);
+        else if (isSubjectModalOpen) setIsSubjectModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    viewingPractical,
+    editingPractical,
+    deleteModalTarget,
+    viewingDocData,
+    previewData,
+    isDocumentsModalOpen,
+    isDocsToCodeOpen,
+    isDocxViewerUploadOpen,
+    isManualModalOpen,
+    isSubjectModalOpen,
+  ]);
+
 
   useEffect(() => {
     loadPracticals();
@@ -119,7 +162,7 @@ export default function App() {
         document.body.removeChild(textArea);
       }
       addToast('Code copied to clipboard!', 'success');
-    } catch (e) {
+    } catch {
       addToast('Failed to copy code', 'error');
     }
   };
@@ -212,7 +255,8 @@ export default function App() {
         theme={theme}
         setTheme={setTheme}
         onOpenSubjectModal={() => setIsSubjectModalOpen(true)}
-        onOpenUploadModal={() => setIsUploadModalOpen(true)}
+        onOpenDocsToCodeModal={() => setIsDocsToCodeOpen(true)}
+        onOpenDocxViewerUploadModal={() => setIsDocxViewerUploadOpen(true)}
         onOpenManualPracticalModal={() => setIsManualModalOpen(true)}
         onOpenDocumentsModal={() => setIsDocumentsModalOpen(true)}
         activeSubject={activeSubject}
@@ -243,9 +287,9 @@ export default function App() {
             onEditPractical={(p) => setEditingPractical(p)}
             onDeletePractical={handleRequestDeletePractical}
             onDeleteSubject={handleRequestDeleteSubject}
-            onOpenUploadModal={() => setIsUploadModalOpen(true)}
+            onOpenDocsToCodeModal={() => setIsDocsToCodeOpen(true)}
+            onOpenDocxViewerUploadModal={() => setIsDocxViewerUploadOpen(true)}
             onOpenManualModal={() => setIsManualModalOpen(true)}
-            onOpenDocumentsModal={() => setIsDocumentsModalOpen(true)}
             selectedLanguage={selectedLanguage}
             setSelectedLanguage={setSelectedLanguage}
           />
@@ -262,14 +306,20 @@ export default function App() {
         onCreateSubject={handleCreateSubject}
       />
 
-      <DocxUploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
+      {/* Docs to Code Separation Modal */}
+      <DocsToCodeModal
+        isOpen={isDocsToCodeOpen}
+        onClose={() => setIsDocsToCodeOpen(false)}
         onParsedResult={handleDocxParsed}
-        onViewDocument={(doc) => {
-          setViewingDocData(doc);
-          setIsUploadModalOpen(false);
-        }}
+        activeSubject={activeSubject}
+      />
+
+      {/* Upload DOCX to View on Website */}
+      <DocxViewerUploadModal
+        isOpen={isDocxViewerUploadOpen}
+        onClose={() => setIsDocxViewerUploadOpen(false)}
+        onViewDocument={(doc) => setViewingDocData(doc)}
+        onOpenDocumentsList={() => setIsDocumentsModalOpen(true)}
         activeSubject={activeSubject}
       />
 
@@ -298,11 +348,16 @@ export default function App() {
 
       <DocxViewerModal
         isOpen={Boolean(viewingDocData)}
+        documentData={viewingDocData}
         documentId={viewingDocData?.id}
         documentFilename={viewingDocData?.filename}
         onClose={() => setViewingDocData(null)}
         onExtractPracticals={(parsedData) => {
           setPreviewData(parsedData);
+          setViewingDocData(null);
+        }}
+        onDeleteSuccess={() => {
+          addToast('Document removed', 'info');
           setViewingDocData(null);
         }}
       />

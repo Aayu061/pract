@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Layers, Plus } from 'lucide-react';
+import { X, Layers, Plus, AlertTriangle } from 'lucide-react';
 
 const COLOR_PALETTE = [
   '#6366f1', // Indigo
@@ -20,6 +20,7 @@ export default function SubjectModal({ isOpen, onClose, onCreateSubject }) {
   const [color, setColor] = useState(COLOR_PALETTE[0]);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   if (!isOpen) return null;
 
@@ -27,6 +28,7 @@ export default function SubjectModal({ isOpen, onClose, onCreateSubject }) {
     e.preventDefault();
     if (!code.trim() || !name.trim()) return;
 
+    setErrorMessage(null);
     setIsSubmitting(true);
     try {
       await onCreateSubject({
@@ -42,24 +44,31 @@ export default function SubjectModal({ isOpen, onClose, onCreateSubject }) {
       setDescription('');
       onClose();
     } catch (err) {
-      alert(`Failed to create subject: ${err.message}`);
+      setErrorMessage(err.message || 'Failed to create subject');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Create New Subject">
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <Layers size={20} color="var(--accent-primary)" />
             <h2>Create New Subject / Lab</h2>
           </div>
-          <button className="btn-icon" onClick={onClose}>
+          <button className="btn-icon" onClick={onClose} aria-label="Close modal">
             <X size={18} />
           </button>
         </div>
+
+        {errorMessage && (
+          <div style={{ margin: '0.75rem 1.75rem 0', padding: '0.65rem 1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
+            <AlertTriangle size={16} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <div className="modal-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -120,7 +129,7 @@ export default function SubjectModal({ isOpen, onClose, onCreateSubject }) {
             </div>
 
             <div className="form-group">
-              <label>Theme Color Tag</label>
+              <label>Theme Color</label>
               <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.2rem' }}>
                 {COLOR_PALETTE.map((c) => (
                   <button
@@ -133,21 +142,23 @@ export default function SubjectModal({ isOpen, onClose, onCreateSubject }) {
                       borderRadius: '50%',
                       background: c,
                       border: color === c ? '3px solid #fff' : '2px solid transparent',
-                      boxShadow: color === c ? '0 0 10px ' + c : 'none',
                       cursor: 'pointer',
-                      transition: 'all 0.2s',
+                      outline: color === c ? '2px solid var(--accent-primary)' : 'none',
+                      transition: 'transform 0.15s ease',
+                      transform: color === c ? 'scale(1.15)' : 'scale(1)',
                     }}
+                    aria-label={`Select color ${c}`}
                   />
                 ))}
               </div>
             </div>
 
             <div className="form-group">
-              <label>Description (Optional)</label>
+              <label>Description / Lab Syllabus (Optional)</label>
               <textarea
                 className="form-control"
                 rows="3"
-                placeholder="Brief outline or syllabus overview..."
+                placeholder="Brief notes about lab objectives or textbook references"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -155,7 +166,7 @@ export default function SubjectModal({ isOpen, onClose, onCreateSubject }) {
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>

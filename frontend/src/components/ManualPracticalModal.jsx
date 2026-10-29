@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Code } from 'lucide-react';
+import { X, Plus, Code, AlertTriangle } from 'lucide-react';
 
 export default function ManualPracticalModal({
   isOpen,
@@ -14,18 +14,37 @@ export default function ManualPracticalModal({
   const [description, setDescription] = useState('');
   const [code, setCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   // Sync suggested number
   React.useEffect(() => {
     setPracticalNumber(suggestedNumber);
-  }, [suggestedNumber]);
+    setErrorMessage(null);
+  }, [suggestedNumber, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleCodeKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const target = e.target;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      const val = code;
+      setCode(val.substring(0, start) + '    ' + val.substring(end));
+      setTimeout(() => {
+        if (target) {
+          target.selectionStart = target.selectionEnd = start + 4;
+        }
+      }, 0);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !code.trim() || !activeSubject) return;
 
+    setErrorMessage(null);
     setIsSubmitting(true);
     try {
       await onCreatePractical({
@@ -40,7 +59,7 @@ export default function ManualPracticalModal({
       setDescription('');
       onClose();
     } catch (err) {
-      alert(`Error creating practical: ${err.message}`);
+      setErrorMessage(err.message || 'Error creating practical');
     } finally {
       setIsSubmitting(false);
     }
@@ -49,7 +68,7 @@ export default function ManualPracticalModal({
   const lineCount = code ? code.split('\n').length : 0;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Add Practical Manually">
       <div className="modal-content wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -61,10 +80,17 @@ export default function ManualPracticalModal({
               </span>
             </div>
           </div>
-          <button className="btn-icon" onClick={onClose}>
+          <button className="btn-icon" onClick={onClose} aria-label="Close modal">
             <X size={18} />
           </button>
         </div>
+
+        {errorMessage && (
+          <div style={{ margin: '0.75rem 1.75rem 0', padding: '0.65rem 1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
+            <AlertTriangle size={16} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <div className="modal-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -115,43 +141,45 @@ export default function ManualPracticalModal({
             </div>
 
             <div className="form-group">
-              <label>Objective & Theory Notes (Optional)</label>
+              <label>Objective & Theory (Optional)</label>
               <input
                 type="text"
                 className="form-control"
-                placeholder="Brief theory or notes (Output must NOT be included here)"
+                placeholder="Brief summary of algorithm, complexity, or objectives"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
 
+            {/* In-Browser Code Editor Area */}
             <div className="form-group" style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                <label>Source Code * (Pure code only, no output)</label>
+                <label>Source Code * (Press Tab to indent)</label>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
                   {lineCount} lines | {code.length} characters
                 </span>
               </div>
               <textarea
                 className="form-control code-area"
-                rows="14"
-                placeholder="Paste clean source code here..."
+                rows="16"
+                placeholder="// Paste or write clean practical experiment code here"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
+                onKeyDown={handleCodeKeyDown}
                 required
                 spellCheck="false"
-                style={{ resize: 'vertical', minHeight: '220px' }}
+                style={{ resize: 'vertical', minHeight: '260px' }}
               />
             </div>
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               <Plus size={16} />
-              <span>{isSubmitting ? 'Adding...' : 'Add Practical'}</span>
+              <span>{isSubmitting ? 'Saving...' : 'Add Practical'}</span>
             </button>
           </div>
         </form>

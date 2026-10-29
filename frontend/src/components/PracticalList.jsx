@@ -7,12 +7,13 @@ import {
   Code2,
   FileArchive,
   Plus,
-  Upload,
   Trash2,
   ExternalLink,
-  BookOpen,
+  Sparkles,
+  FileText,
 } from 'lucide-react';
 import { getExportPracticalUrl, getExportSubjectZipUrl } from '../services/api';
+import HighlightedCode from './HighlightedCode';
 
 export default function PracticalList({
   subject,
@@ -23,13 +24,12 @@ export default function PracticalList({
   onEditPractical,
   onDeletePractical,
   onDeleteSubject,
-  onOpenUploadModal,
+  onOpenDocsToCodeModal,
+  onOpenDocxViewerUploadModal,
   onOpenManualModal,
-  onOpenDocumentsModal,
   selectedLanguage,
   setSelectedLanguage,
 }) {
-
   const [copiedId, setCopiedId] = useState(null);
 
   const handleCopy = (practical, e) => {
@@ -56,11 +56,18 @@ export default function PracticalList({
           Welcome to CS LabPortal
         </h2>
         <p style={{ maxWidth: '480px', color: 'var(--text-muted)' }}>
-          Select a subject from the left sidebar to view practicals, or create a new subject / upload a lab manual `.docx` file to automatically parse experiments!
+          Select a subject from the left sidebar to view practicals, extract experiments from your lab manuals, or read DOCX documents directly on the website!
         </p>
-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-          <button className="btn btn-primary" onClick={onOpenUploadModal}>
-            <Upload size={16} /> Upload Lab DOCX
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button
+            className="btn btn-primary"
+            onClick={onOpenDocsToCodeModal}
+            style={{ background: 'var(--accent-gradient)', borderColor: 'transparent' }}
+          >
+            <Sparkles size={16} /> Docs to Code Separation
+          </button>
+          <button className="btn btn-secondary" onClick={onOpenDocxViewerUploadModal}>
+            <FileText size={16} /> Read DOCX on Website
           </button>
         </div>
       </div>
@@ -104,29 +111,32 @@ export default function PracticalList({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', zIndex: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', zIndex: 2, flexWrap: 'wrap' }}>
+          {/* Read DOCX on Website button */}
+          <button
+            className="btn btn-secondary"
+            onClick={onOpenDocxViewerUploadModal}
+            title="Upload DOCX to view and read on website"
+          >
+            <FileText size={16} /> Read DOCX
+          </button>
+
+          {/* Docs to Code Separation button */}
+          <button
+            className="btn btn-primary"
+            onClick={onOpenDocsToCodeModal}
+            title="Extract & separate practical experiments from DOCX"
+            style={{ background: 'var(--accent-gradient)', borderColor: 'transparent' }}
+          >
+            <Sparkles size={16} /> Docs to Code
+          </button>
+
           <button
             className="btn btn-secondary"
             onClick={onOpenManualModal}
             title="Add a single practical manually"
           >
             <Plus size={16} /> Add Practical
-          </button>
-
-          <button
-            className="btn btn-secondary"
-            onClick={onOpenDocumentsModal}
-            title="View original uploaded DOCX manuals on website"
-          >
-            <BookOpen size={16} /> View DOCX
-          </button>
-
-          <button
-            className="btn btn-primary"
-            onClick={onOpenUploadModal}
-            title="Upload and separate docx lab manual"
-          >
-            <Upload size={16} /> Ingest DOCX
           </button>
 
           {practicals.length > 0 && (
@@ -190,12 +200,19 @@ export default function PracticalList({
           <h3>No practicals found</h3>
           <p style={{ fontSize: '0.9rem' }}>
             {practicals.length === 0
-              ? 'This subject is currently empty. Add practicals manually or upload a .docx lab manual to auto-separate experiments.'
+              ? 'This subject is currently empty. Extract practicals from a DOCX lab manual, read documents on the website, or add experiments manually.'
               : 'No practicals match the current filter criteria.'}
           </p>
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
-            <button className="btn btn-primary" onClick={onOpenUploadModal}>
-              <Upload size={16} /> Ingest DOCX Manual
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              className="btn btn-primary"
+              onClick={onOpenDocsToCodeModal}
+              style={{ background: 'var(--accent-gradient)', borderColor: 'transparent' }}
+            >
+              <Sparkles size={16} /> Docs to Code Separation
+            </button>
+            <button className="btn btn-secondary" onClick={onOpenDocxViewerUploadModal}>
+              <FileText size={16} /> Read DOCX on Website
             </button>
             <button className="btn btn-secondary" onClick={onOpenManualModal}>
               <Plus size={16} /> Add Manually
@@ -265,9 +282,9 @@ export default function PracticalList({
 
                 {p.description && <p className="card-desc">{p.description}</p>}
 
-                {/* Code Preview Box */}
+                {/* Code Preview Box with Syntax Highlighting */}
                 <div className="code-preview-box">
-                  <code>{p.code}</code>
+                  <HighlightedCode code={p.code} language={p.language} showLineNumbers={false} />
                 </div>
 
                 <div className="card-footer">

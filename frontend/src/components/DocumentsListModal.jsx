@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   X,
   FileText,
@@ -6,10 +6,10 @@ import {
   BookOpen,
   Download,
   Trash2,
-  Sparkles,
   Calendar,
   Loader2,
   FolderOpen,
+  AlertTriangle,
 } from 'lucide-react';
 import { getDocuments, uploadDocument, getDocumentDownloadUrl, deleteDocument } from '../services/api';
 
@@ -18,30 +18,32 @@ export default function DocumentsListModal({
   onClose,
   activeSubject,
   onViewDocument,
-  onExtractPracticals,
+  _onExtractPracticals,
 }) {
   const [documents, setDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
   const fileInputRef = useRef(null);
 
-  const loadDocs = async () => {
+  const loadDocs = useCallback(async () => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const data = await getDocuments(activeSubject?.id || null);
       setDocuments(data);
     } catch (e) {
-      console.error('Failed to load documents:', e);
+      setErrorMessage(e.message || 'Failed to load documents');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeSubject]);
 
   useEffect(() => {
     if (isOpen) {
       loadDocs();
     }
-  }, [isOpen, activeSubject]);
+  }, [isOpen, loadDocs]);
 
   if (!isOpen) return null;
 
@@ -50,10 +52,11 @@ export default function DocumentsListModal({
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.docx')) {
-      alert('Please select a valid .docx Word document.');
+      setErrorMessage('Please select a valid .docx Word document.');
       return;
     }
 
+    setErrorMessage(null);
     setIsUploading(true);
     try {
       const docResult = await uploadDocument(file, activeSubject?.id || null);
@@ -62,7 +65,7 @@ export default function DocumentsListModal({
       onViewDocument(docResult);
       onClose();
     } catch (err) {
-      alert(`Upload error: ${err.message}`);
+      setErrorMessage(`Upload error: ${err.message}`);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -76,12 +79,12 @@ export default function DocumentsListModal({
       await deleteDocument(doc.id);
       setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
     } catch (err) {
-      alert(`Failed to delete: ${err.message}`);
+      setErrorMessage(`Failed to delete: ${err.message}`);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Documents List">
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -110,6 +113,7 @@ export default function DocumentsListModal({
               className="btn btn-primary"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
+              aria-label="Upload DOCX"
             >
               {isUploading ? (
                 <>
@@ -123,11 +127,18 @@ export default function DocumentsListModal({
                 </>
               )}
             </button>
-            <button className="btn-icon" onClick={onClose}>
+            <button className="btn-icon" onClick={onClose} aria-label="Close modal">
               <X size={18} />
             </button>
           </div>
         </div>
+
+        {errorMessage && (
+          <div style={{ margin: '0.75rem 1.75rem 0', padding: '0.65rem 1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
+            <AlertTriangle size={16} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         <div className="modal-body" style={{ flex: 1, overflowY: 'auto' }}>
           {isLoading ? (
@@ -187,6 +198,7 @@ export default function DocumentsListModal({
                         onClose();
                       }}
                       title="Read Document in Browser"
+                      aria-label="Read document in browser"
                     >
                       <BookOpen size={14} />
                       <span>Read</span>
@@ -197,6 +209,7 @@ export default function DocumentsListModal({
                       download={doc.filename}
                       className="btn-icon"
                       title="Download original .docx"
+                      aria-label="Download original DOCX file"
                     >
                       <Download size={15} />
                     </a>
@@ -206,6 +219,7 @@ export default function DocumentsListModal({
                       style={{ color: 'var(--danger)' }}
                       onClick={(e) => handleDelete(doc, e)}
                       title="Delete document"
+                      aria-label="Delete document"
                     >
                       <Trash2 size={15} />
                     </button>

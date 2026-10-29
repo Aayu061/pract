@@ -10,7 +10,7 @@ export async function fetchJson(url, options = {}) {
       if (errData && errData.detail) {
         errorMsg = errData.detail;
       }
-    } catch (e) {
+    } catch {
       // Ignore fallback
     }
     throw new Error(errorMsg);
@@ -97,7 +97,7 @@ export async function previewDocx(file) {
     try {
       const err = await res.json();
       if (err.detail) errorMsg = err.detail;
-    } catch (_) {}
+    } catch {}
     throw new Error(errorMsg);
   }
 
@@ -138,7 +138,7 @@ export async function uploadDocument(file, subjectId = null) {
     try {
       const err = await res.json();
       if (err.detail) errorMsg = err.detail;
-    } catch (_) {}
+    } catch {}
     throw new Error(errorMsg);
   }
 

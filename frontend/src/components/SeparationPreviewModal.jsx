@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, CheckCircle, ShieldCheck, AlertCircle, FileCheck, Code2, Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, CheckCircle, ShieldCheck, FileCheck, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { commitIngestedPracticals } from '../services/api';
 
 export default function SeparationPreviewModal({
@@ -10,14 +10,27 @@ export default function SeparationPreviewModal({
   onClose,
   onCommitSuccess,
 }) {
-  if (!isOpen || !previewData) return null;
-
-  const [practicals, setPracticals] = useState(previewData.practicals || []);
-  const [targetSubjectId, setTargetSubjectId] = useState(
-    activeSubject?.id || (subjects.length > 0 ? subjects[0].id : '')
-  );
+  const [practicals, setPracticals] = useState([]);
+  const [targetSubjectId, setTargetSubjectId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
   const [expandedOutputIndex, setExpandedOutputIndex] = useState({});
+
+  useEffect(() => {
+    if (previewData?.practicals) {
+      setPracticals(previewData.practicals);
+    }
+  }, [previewData]);
+
+  useEffect(() => {
+    if (activeSubject?.id) {
+      setTargetSubjectId(activeSubject.id);
+    } else if (subjects && subjects.length > 0) {
+      setTargetSubjectId(subjects[0].id);
+    }
+  }, [activeSubject, subjects]);
+
+  if (!isOpen || !previewData) return null;
 
   const toggleInclude = (idx) => {
     setPracticals((prev) =>
@@ -41,12 +54,13 @@ export default function SeparationPreviewModal({
   const includedItems = practicals.filter((p) => p.include);
 
   const handleCommit = async () => {
+    setErrorMessage(null);
     if (!targetSubjectId) {
-      alert('Please select a target subject to import practicals into.');
+      setErrorMessage('Please select a target subject to import practicals into.');
       return;
     }
     if (includedItems.length === 0) {
-      alert('Please select at least one practical to import.');
+      setErrorMessage('Please select at least one practical to import.');
       return;
     }
 
@@ -67,14 +81,14 @@ export default function SeparationPreviewModal({
       onCommitSuccess(targetSubjectId, includedItems.length);
       onClose();
     } catch (err) {
-      alert(`Import failed: ${err.message}`);
+      setErrorMessage(err.message || 'Import failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Separation Preview">
       <div className="modal-content wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1100px', height: '90vh' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -87,10 +101,17 @@ export default function SeparationPreviewModal({
             </div>
           </div>
 
-          <button className="btn-icon" onClick={onClose} disabled={isSubmitting}>
+          <button className="btn-icon" onClick={onClose} disabled={isSubmitting} aria-label="Close modal">
             <X size={18} />
           </button>
         </div>
+
+        {errorMessage && (
+          <div style={{ margin: '0.75rem 1.75rem 0', padding: '0.65rem 1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
+            <AlertTriangle size={16} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* Top Control Bar */}
         <div style={{ padding: '0.85rem 1.75rem', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
@@ -139,6 +160,7 @@ export default function SeparationPreviewModal({
                       checked={item.include}
                       onChange={() => toggleInclude(idx)}
                       style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-primary)' }}
+                      aria-label={`Include practical #${item.practical_number}`}
                     />
                     <span className="practical-num-tag">
                       EXP #{item.practical_number}

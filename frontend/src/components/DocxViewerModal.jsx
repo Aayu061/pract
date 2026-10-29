@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   FileText,
@@ -18,6 +18,8 @@ import { getDocumentHtml, getDocumentDownloadUrl, deleteDocument } from '../serv
 export default function DocxViewerModal({
   isOpen,
   documentData,
+  documentId,
+  documentFilename,
   onClose,
   onExtractPracticals,
   onDeleteSuccess,
@@ -31,20 +33,25 @@ export default function DocxViewerModal({
   const [activeHeadingId, setActiveHeadingId] = useState('');
   const contentContainerRef = useRef(null);
 
-  useEffect(() => {
-    if (!isOpen || !documentData) return;
+  const effectiveDoc = useMemo(
+    () => documentData || (documentId ? { id: documentId, filename: documentFilename } : null),
+    [documentData, documentId, documentFilename]
+  );
 
-    if (documentData.html && documentData.toc) {
-      setHtmlContent(documentData.html);
-      setTocList(documentData.toc);
-      setWordCount(documentData.word_count || 0);
+  useEffect(() => {
+    if (!isOpen || !effectiveDoc) return;
+
+    if (effectiveDoc.html && effectiveDoc.toc) {
+      setHtmlContent(effectiveDoc.html);
+      setTocList(effectiveDoc.toc);
+      setWordCount(effectiveDoc.word_count || 0);
       return;
     }
 
     // Otherwise fetch via document id
-    if (documentData.id) {
+    if (effectiveDoc.id) {
       setIsLoading(true);
-      getDocumentHtml(documentData.id)
+      getDocumentHtml(effectiveDoc.id)
         .then((res) => {
           setHtmlContent(res.html);
           setTocList(res.toc || []);
@@ -57,9 +64,9 @@ export default function DocxViewerModal({
           setIsLoading(false);
         });
     }
-  }, [isOpen, documentData]);
+  }, [isOpen, effectiveDoc]);
 
-  if (!isOpen || !documentData) return null;
+  if (!isOpen || !effectiveDoc) return null;
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 15, 160));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 15, 70));
@@ -74,27 +81,27 @@ export default function DocxViewerModal({
   };
 
   const handleExtractClick = () => {
-    if (documentData.practicals_preview) {
-      onExtractPracticals(documentData.practicals_preview);
+    if (effectiveDoc.practicals_preview) {
+      onExtractPracticals(effectiveDoc.practicals_preview);
       onClose();
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete "${documentData.filename}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete "${effectiveDoc.filename}"?`)) return;
     try {
-      if (documentData.id) {
-        await deleteDocument(documentData.id);
-        if (onDeleteSuccess) onDeleteSuccess(documentData.id);
+      if (effectiveDoc.id) {
+        await deleteDocument(effectiveDoc.id);
+        if (onDeleteSuccess) onDeleteSuccess(effectiveDoc.id);
         onClose();
       }
     } catch (e) {
-      alert(`Delete failed: ${e.message}`);
+      console.error(`Delete failed: ${e.message}`);
     }
   };
 
   return (
-    <div className="modal-overlay docx-viewer-overlay" onClick={onClose}>
+    <div className="modal-overlay docx-viewer-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="DOCX Viewer">
       <div
         className="modal-content docx-viewer-modal"
         onClick={(e) => e.stopPropagation()}
@@ -106,15 +113,15 @@ export default function DocxViewerModal({
               <FileText size={22} color="var(--accent-primary)" />
             </div>
             <div>
-              <h2 className="docx-modal-title">{documentData.filename}</h2>
+              <h2 className="docx-modal-title">{effectiveDoc.filename}</h2>
               <div className="docx-meta-chips">
                 <span className="doc-chip">
-                  {(documentData.file_size ? documentData.file_size / 1024 : 0).toFixed(1)} KB
+                  {(effectiveDoc.file_size ? effectiveDoc.file_size / 1024 : 0).toFixed(1)} KB
                 </span>
                 {wordCount > 0 && <span className="doc-chip">{wordCount} words</span>}
-                {documentData.parsed_practical_count > 0 && (
+                {effectiveDoc.parsed_practical_count > 0 && (
                   <span className="doc-chip doc-chip-highlight">
-                    {documentData.parsed_practical_count} Practicals Detected
+                    {effectiveDoc.parsed_practical_count} Practicals Detected
                   </span>
                 )}
               </div>
@@ -130,6 +137,7 @@ export default function DocxViewerModal({
                 onClick={handleZoomOut}
                 title="Zoom Out"
                 disabled={zoom <= 70}
+                aria-label="Zoom out"
               >
                 <ZoomOut size={16} />
               </button>
@@ -141,11 +149,12 @@ export default function DocxViewerModal({
                 onClick={handleZoomIn}
                 title="Zoom In"
                 disabled={zoom >= 160}
+                aria-label="Zoom in"
               >
                 <ZoomIn size={16} />
               </button>
               {zoom !== 100 && (
-                <button className="btn-icon" onClick={handleResetZoom} title="Reset zoom">
+                <button className="btn-icon" onClick={handleResetZoom} title="Reset zoom" aria-label="Reset zoom">
                   <RotateCcw size={14} />
                 </button>
               )}
@@ -157,6 +166,7 @@ export default function DocxViewerModal({
                 className={`btn btn-secondary ${showToc ? 'active-toc-btn' : ''}`}
                 onClick={() => setShowToc((prev) => !prev)}
                 title="Toggle Table of Contents"
+                aria-label="Toggle Outline"
               >
                 <List size={15} />
                 <span>Outline ({tocList.length})</span>
@@ -164,20 +174,21 @@ export default function DocxViewerModal({
             )}
 
             {/* Extract Practicals */}
-            {documentData.practicals_preview && (
-              <button className="btn btn-primary" onClick={handleExtractClick}>
+            {effectiveDoc.practicals_preview && (
+              <button className="btn btn-primary" onClick={handleExtractClick} aria-label="Extract practicals">
                 <Sparkles size={16} />
                 <span>Extract Practicals</span>
               </button>
             )}
 
             {/* Download Original DOCX */}
-            {documentData.id && (
+            {effectiveDoc.id && (
               <a
-                href={getDocumentDownloadUrl(documentData.id)}
-                download={documentData.filename}
+                href={getDocumentDownloadUrl(effectiveDoc.id)}
+                download={effectiveDoc.filename}
                 className="btn btn-secondary"
                 title="Download original .docx"
+                aria-label="Download original DOCX file"
               >
                 <Download size={15} />
                 <span>Download</span>
@@ -185,18 +196,19 @@ export default function DocxViewerModal({
             )}
 
             {/* Delete button */}
-            {documentData.id && (
+            {effectiveDoc.id && (
               <button
                 className="btn-icon"
                 onClick={handleDelete}
                 style={{ color: 'var(--danger)' }}
                 title="Delete document"
+                aria-label="Delete document"
               >
                 <Trash2 size={16} />
               </button>
             )}
 
-            <button className="btn-icon" onClick={onClose} title="Close viewer">
+            <button className="btn-icon" onClick={onClose} title="Close viewer" aria-label="Close viewer">
               <X size={20} />
             </button>
           </div>

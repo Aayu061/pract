@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Edit3, Download, Trash2 } from 'lucide-react';
+import { X, Copy, Check, Edit3, Download } from 'lucide-react';
 import { getExportPracticalUrl } from '../services/api';
+import HighlightedCode from './HighlightedCode';
 
 export default function PracticalDetailModal({
   practical,
@@ -23,7 +24,7 @@ export default function PracticalDetailModal({
   const codeLines = practical.code.split('\n');
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Practical Details">
       <div className="modal-content wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -39,7 +40,7 @@ export default function PracticalDetailModal({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <button className="btn btn-secondary" onClick={handleCopy}>
+            <button className="btn btn-secondary" onClick={handleCopy} aria-label="Copy source code">
               {copied ? <Check size={16} color="#10b981" /> : <Copy size={16} />}
               <span>{copied ? 'Copied!' : 'Copy Code'}</span>
             </button>
@@ -50,6 +51,7 @@ export default function PracticalDetailModal({
                 onClose();
                 onEdit(practical);
               }}
+              aria-label="Edit practical"
             >
               <Edit3 size={16} />
               <span>Edit</span>
@@ -60,6 +62,7 @@ export default function PracticalDetailModal({
               download
               className="btn btn-secondary"
               style={{ textDecoration: 'none' }}
+              aria-label="Download practical file"
             >
               <Download size={16} />
               <span>Download</span>
@@ -74,12 +77,13 @@ export default function PracticalDetailModal({
                   onDelete(practical);
                 }}
                 title="Delete Practical"
+                aria-label="Delete practical"
               >
                 Delete
               </button>
             )}
 
-            <button className="btn-icon" onClick={onClose}>
+            <button className="btn-icon" onClick={onClose} aria-label="Close modal">
               <X size={18} />
             </button>
           </div>
@@ -93,7 +97,7 @@ export default function PracticalDetailModal({
             </div>
           )}
 
-          {/* Full Code Box with Line Numbers */}
+          {/* Full Code Box with Line Numbers & Syntax Highlighting */}
           <div className="code-viewer-container">
             <div className="code-viewer-header">
               <span className="lang-chip">{practical.language}</span>
@@ -102,16 +106,11 @@ export default function PracticalDetailModal({
               </span>
             </div>
 
-            <div className="code-viewer-content">
-              <div className="line-numbers">
-                {codeLines.map((_, i) => (
-                  <div key={i}>{i + 1}</div>
-                ))}
-              </div>
-              <div className="code-lines">
-                <code>{practical.code}</code>
-              </div>
-            </div>
+            <HighlightedCode
+              code={practical.code}
+              language={practical.language}
+              showLineNumbers={true}
+            />
           </div>
         </div>
       </div>

@@ -21,6 +21,18 @@
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
   --text-dim: #64748b;
+  --text-code: #f8fafc;
+
+  /* Syntax Highlighting Tokens (Dark Mode) */
+  --token-keyword: #c084fc;
+  --token-function: #60a5fa;
+  --token-string: #34d399;
+  --token-comment: #64748b;
+  --token-number: #f59e0b;
+  --token-operator: #38bdf8;
+  --token-class: #f472b6;
+  --token-punctuation: #94a3b8;
+  --token-boolean: #fb7185;
 
   --accent-primary: #6366f1;
   --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
@@ -57,6 +69,18 @@
   --text-main: #0f172a;
   --text-muted: #475569;
   --text-dim: #94a3b8;
+  --text-code: #0f172a;
+
+  /* Syntax Highlighting Tokens (Light Mode) */
+  --token-keyword: #7c3aed;
+  --token-function: #2563eb;
+  --token-string: #059669;
+  --token-comment: #64748b;
+  --token-number: #d97706;
+  --token-operator: #0284c7;
+  --token-class: #db2777;
+  --token-punctuation: #475569;
+  --token-boolean: #e11d48;
 
   --accent-glow: 0 4px 20px rgba(99, 102, 241, 0.2);
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.05);
@@ -550,7 +574,7 @@ body {
   padding: 0.85rem 1rem;
   font-family: var(--font-mono);
   font-size: 0.82rem;
-  color: #e2e8f0;
+  color: var(--text-code);
   max-height: 140px;
   overflow: hidden;
   position: relative;
@@ -656,7 +680,7 @@ body {
 
 .code-lines {
   padding: 0 1.25rem;
-  color: #f8fafc;
+  color: var(--text-code);
   flex: 1;
   white-space: pre;
   min-width: 0;
@@ -1387,7 +1411,7 @@ body {
   font-family: var(--font-mono);
   font-size: 0.85rem;
   line-height: 1.6;
-  color: #e2e8f0;
+  color: var(--text-code);
 }
 
 .docx-callout {
@@ -1523,4 +1547,45 @@ body {
   .docx-paper-page {
     padding: 2rem 1.25rem;
   }
+}
+
+
+/* Syntax Highlighting Classes */
+.token.keyword,
+.token.builtin {
+  color: var(--token-keyword);
+  font-weight: 600;
+}
+.token.function {
+  color: var(--token-function);
+}
+.token.string,
+.token.char {
+  color: var(--token-string);
+}
+.token.comment {
+  color: var(--token-comment);
+  font-style: italic;
+}
+.token.number {
+  color: var(--token-number);
+}
+.token.operator {
+  color: var(--token-operator);
+}
+.token.class-name {
+  color: var(--token-class);
+}
+.token.punctuation {
+  color: var(--token-punctuation);
+}
+.token.boolean {
+  color: var(--token-boolean);
+  font-weight: 600;
+}
+.token.property {
+  color: var(--token-function);
+}
+.token.variable {
+  color: var(--text-code);
 }

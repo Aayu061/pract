@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Code, Check } from 'lucide-react';
+import { X, Save, Code, AlertTriangle } from 'lucide-react';
 
 export default function CodeEditorModal({
   practical,
@@ -14,6 +14,7 @@ export default function CodeEditorModal({
   const [description, setDescription] = useState('');
   const [code, setCode] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
     if (practical) {
@@ -22,13 +23,31 @@ export default function CodeEditorModal({
       setLanguage(practical.language || 'cpp');
       setDescription(practical.description || '');
       setCode(practical.code || '');
+      setErrorMessage(null);
     }
   }, [practical]);
 
   if (!isOpen || !practical) return null;
 
+  const handleCodeKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const target = e.target;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      const val = code;
+      setCode(val.substring(0, start) + '    ' + val.substring(end));
+      setTimeout(() => {
+        if (target) {
+          target.selectionStart = target.selectionEnd = start + 4;
+        }
+      }, 0);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage(null);
     setIsSaving(true);
     try {
       await onSave(practical.id, {
@@ -40,7 +59,7 @@ export default function CodeEditorModal({
       });
       onClose();
     } catch (err) {
-      alert(`Error saving: ${err.message}`);
+      setErrorMessage(err.message || 'Error saving practical');
     } finally {
       setIsSaving(false);
     }
@@ -49,17 +68,24 @@ export default function CodeEditorModal({
   const lineCount = code.split('\n').length;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Edit Practical">
       <div className="modal-content wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <Code size={20} color="var(--accent-primary)" />
             <h2>Edit Practical Experiment</h2>
           </div>
-          <button className="btn-icon" onClick={onClose}>
+          <button className="btn-icon" onClick={onClose} aria-label="Close modal">
             <X size={18} />
           </button>
         </div>
+
+        {errorMessage && (
+          <div style={{ margin: '0.75rem 1.75rem 0', padding: '0.65rem 1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
+            <AlertTriangle size={16} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <div className="modal-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -124,7 +150,7 @@ export default function CodeEditorModal({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
                 <label>Source Code (Only clean code, no output)</label>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                  {lineCount} lines | {code.length} characters
+                  {lineCount} lines | {code.length} characters (Press Tab to indent)
                 </span>
               </div>
               <textarea
@@ -132,6 +158,7 @@ export default function CodeEditorModal({
                 rows="16"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
+                onKeyDown={handleCodeKeyDown}
                 required
                 spellCheck="false"
                 style={{ resize: 'vertical', minHeight: '260px' }}
