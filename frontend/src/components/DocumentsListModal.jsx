@@ -12,6 +12,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { getDocuments, uploadDocument, getDocumentDownloadUrl, deleteDocument } from '../services/api';
+import { optimizeDocxForUpload } from '../services/docxOptimizer';
 
 export default function DocumentsListModal({
   isOpen,
@@ -59,7 +60,8 @@ export default function DocumentsListModal({
     setErrorMessage(null);
     setIsUploading(true);
     try {
-      const docResult = await uploadDocument(file, activeSubject?.id || null);
+      const fileToUpload = await optimizeDocxForUpload(file);
+      const docResult = await uploadDocument(fileToUpload, activeSubject?.id || null);
       await loadDocs();
       // Directly open in viewer
       onViewDocument(docResult);

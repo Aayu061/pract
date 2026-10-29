@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, UploadCloud, Loader2, BookOpen, CheckCircle2, FileText, ArrowRight } from 'lucide-react';
 import { uploadDocument } from '../services/api';
+import { optimizeDocxForUpload } from '../services/docxOptimizer';
 
 export default function DocxViewerUploadModal({
   isOpen,
@@ -12,6 +13,7 @@ export default function DocxViewerUploadModal({
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -42,6 +44,7 @@ export default function DocxViewerUploadModal({
 
   const validateAndSetFile = (file) => {
     setError(null);
+    setStatusMessage('');
     if (!file.name.toLowerCase().endsWith('.docx')) {
       setError('Please select a valid Microsoft Word (.docx) document.');
       return;
@@ -53,9 +56,20 @@ export default function DocxViewerUploadModal({
     if (!selectedFile) return;
     setIsLoading(true);
     setError(null);
+    setStatusMessage(
+      selectedFile.size > 3.5 * 1024 * 1024
+        ? 'Optimizing document for cloud upload...'
+        : 'Uploading and rendering document...'
+    );
 
     try {
-      const docResult = await uploadDocument(selectedFile, activeSubject?.id || null);
+      // Automatically optimize if file is large (> 3.5MB) to prevent Vercel 413 Content Too Large
+      const fileToUpload = await optimizeDocxForUpload(selectedFile, (msg) => {
+        setStatusMessage(msg);
+      });
+
+      setStatusMessage('Uploading and rendering document...');
+      const docResult = await uploadDocument(fileToUpload, activeSubject?.id || null);
       onClose();
       if (onViewDocument) {
         onViewDocument(docResult);
@@ -64,6 +78,7 @@ export default function DocxViewerUploadModal({
       setError(err.message || 'Error uploading document to viewer.');
     } finally {
       setIsLoading(false);
+      setStatusMessage('');
     }
   };
 
@@ -121,6 +136,11 @@ export default function DocxViewerUploadModal({
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '0.25rem', display: 'block' }}>
                   {(selectedFile.size / 1024).toFixed(1)} KB — Click to change file
                 </span>
+                {selectedFile.size > 3.5 * 1024 * 1024 && (
+                  <span style={{ fontSize: '0.72rem', color: '#38bdf8', marginTop: '0.2rem', display: 'block' }}>
+                    ⚡ Auto-compression enabled (bypasses 4.5MB cloud ceiling)
+                  </span>
+                )}
               </div>
             ) : (
               <div>
@@ -174,7 +194,7 @@ export default function DocxViewerUploadModal({
             {isLoading ? (
               <>
                 <Loader2 size={16} className="spin-animation" />
-                <span>Uploading & Rendering...</span>
+                <span>{statusMessage || 'Processing Document...'}</span>
               </>
             ) : (
               <>
@@ -189,4 +209,3 @@ export default function DocxViewerUploadModal({
     </div>
   );
 }
-

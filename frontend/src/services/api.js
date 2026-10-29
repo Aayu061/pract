@@ -94,10 +94,14 @@ export async function previewDocx(file) {
 
   if (!res.ok) {
     let errorMsg = 'Failed to parse .docx file';
-    try {
-      const err = await res.json();
-      if (err.detail) errorMsg = err.detail;
-    } catch {}
+    if (res.status === 413) {
+      errorMsg = 'File exceeds cloud upload limit (4.5 MB on Vercel).';
+    } else {
+      try {
+        const err = await res.json();
+        if (err.detail) errorMsg = err.detail;
+      } catch {}
+    }
     throw new Error(errorMsg);
   }
 
@@ -135,10 +139,14 @@ export async function uploadDocument(file, subjectId = null) {
 
   if (!res.ok) {
     let errorMsg = 'Failed to upload and render document';
-    try {
-      const err = await res.json();
-      if (err.detail) errorMsg = err.detail;
-    } catch {}
+    if (res.status === 413) {
+      errorMsg = 'File exceeds cloud upload limit (4.5 MB on Vercel).';
+    } else {
+      try {
+        const err = await res.json();
+        if (err.detail) errorMsg = err.detail;
+      } catch {}
+    }
     throw new Error(errorMsg);
   }
 

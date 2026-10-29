@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, UploadCloud, Loader2, Sparkles, CheckCircle2, ShieldCheck, ArrowRight, Code2 } from 'lucide-react';
 import { previewDocx } from '../services/api';
+import { optimizeDocxForUpload } from '../services/docxOptimizer';
 
 export default function DocsToCodeModal({
   isOpen,
@@ -11,6 +12,7 @@ export default function DocsToCodeModal({
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -41,6 +43,7 @@ export default function DocsToCodeModal({
 
   const validateAndSetFile = (file) => {
     setError(null);
+    setStatusMessage('');
     if (!file.name.toLowerCase().endsWith('.docx')) {
       setError('Please select a valid Microsoft Word (.docx) document.');
       return;
@@ -52,15 +55,26 @@ export default function DocsToCodeModal({
     if (!selectedFile) return;
     setIsLoading(true);
     setError(null);
+    setStatusMessage(
+      selectedFile.size > 3.5 * 1024 * 1024
+        ? 'Optimizing document for cloud upload...'
+        : 'Parsing and separating experiments...'
+    );
 
     try {
-      const parsedData = await previewDocx(selectedFile);
+      const fileToUpload = await optimizeDocxForUpload(selectedFile, (msg) => {
+        setStatusMessage(msg);
+      });
+
+      setStatusMessage('Extracting practicals and filtering output...');
+      const parsedData = await previewDocx(fileToUpload);
       onClose();
       onParsedResult(parsedData);
     } catch (err) {
       setError(err.message || 'Error separating code from document.');
     } finally {
       setIsLoading(false);
+      setStatusMessage('');
     }
   };
 
@@ -137,6 +151,11 @@ export default function DocsToCodeModal({
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '0.25rem', display: 'block' }}>
                   {(selectedFile.size / 1024).toFixed(1)} KB — Ready to separate
                 </span>
+                {selectedFile.size > 3.5 * 1024 * 1024 && (
+                  <span style={{ fontSize: '0.72rem', color: '#38bdf8', marginTop: '0.2rem', display: 'block' }}>
+                    ⚡ Auto-compression enabled (bypasses 4.5MB cloud ceiling)
+                  </span>
+                )}
               </div>
             ) : (
               <div>
@@ -175,7 +194,7 @@ export default function DocsToCodeModal({
             {isLoading ? (
               <>
                 <Loader2 size={16} className="spin-animation" />
-                <span>Separating Experiments...</span>
+                <span>{statusMessage || 'Separating Experiments...'}</span>
               </>
             ) : (
               <>
@@ -190,4 +209,3 @@ export default function DocsToCodeModal({
     </div>
   );
 }
-
