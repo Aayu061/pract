@@ -1,9 +1,10 @@
 import os
 import shutil
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..config import DOCUMENTS_DIR
@@ -11,7 +12,13 @@ from ..models import Document, Subject
 from ..schemas import DocumentOut, DocxPreviewResponse
 from ..parser.docx_html_renderer import render_docx_to_html
 from ..parser.docx_extractor import parse_docx_file
-from ..firestore_service import is_firestore_active
+from ..firestore_service import (
+    is_firestore_active,
+    fs_store_document,
+    fs_get_documents,
+    fs_get_document_by_id,
+    fs_delete_document,
+)
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
@@ -25,6 +32,7 @@ async def upload_document(
     """
     Uploads and permanently stores a .docx manual, renders it into styled HTML for viewing,
     and extracts practicals for import.
+    Compatible with both Firestore and SQLite backends.
     """
     if not file.filename.lower().endswith(".docx"):
         raise HTTPException(
@@ -49,26 +57,41 @@ async def upload_document(
         parsed = parse_docx_file(str(saved_path))
         practical_count = parsed.get("total_practicals_found", 0)
 
-        # 3. Store record in database
-        doc_record = Document(
-            id=doc_id,
-            subject_id=subject_id or None,
-            filename=file.filename,
-            file_path=str(saved_path),
-            file_size=file_size,
-            parsed_practical_count=practical_count,
-        )
-        db.add(doc_record)
-        db.commit()
-        db.refresh(doc_record)
+        # 3. Store record in Firestore if active
+        if is_firestore_active():
+            fs_store_document(
+                doc_id=doc_id,
+                subject_id=subject_id or None,
+                filename=file.filename,
+                file_path=str(saved_path),
+                file_size=file_size,
+                parsed_practical_count=practical_count,
+            )
 
+        # 4. Safely store in SQLite (ignoring foreign key errors if subjects are in Firestore)
+        try:
+            doc_record = Document(
+                id=doc_id,
+                subject_id=subject_id or None,
+                filename=file.filename,
+                file_path=str(saved_path),
+                file_size=file_size,
+                parsed_practical_count=practical_count,
+            )
+            db.add(doc_record)
+            db.commit()
+        except Exception:
+            db.rollback()
+            # If Firestore is active, SQLite sync failure is non-fatal
+
+        now_dt = datetime.now(timezone.utc)
         return {
-            "id": doc_record.id,
-            "subject_id": doc_record.subject_id,
-            "filename": doc_record.filename,
-            "file_size": doc_record.file_size,
-            "parsed_practical_count": doc_record.parsed_practical_count,
-            "created_at": doc_record.created_at,
+            "id": doc_id,
+            "subject_id": subject_id or None,
+            "filename": file.filename,
+            "file_size": file_size,
+            "parsed_practical_count": practical_count,
+            "created_at": now_dt,
             "html": rendered["html"],
             "toc": rendered["toc"],
             "word_count": rendered["word_count"],
@@ -91,6 +114,9 @@ def list_documents(subject_id: Optional[str] = None, db: Session = Depends(get_d
     """
     Returns list of all uploaded documents, optionally filtered by subject.
     """
+    if is_firestore_active():
+        return fs_get_documents(subject_id)
+
     query = db.query(Document)
     if subject_id:
         query = query.filter(Document.subject_id == subject_id)
@@ -102,17 +128,40 @@ def get_document_html(document_id: str, db: Session = Depends(get_db)):
     """
     Returns styled HTML content and TOC for the document viewer.
     """
-    doc = db.query(Document).filter(Document.id == document_id).first()
-    if not doc or not os.path.exists(doc.file_path):
+    file_path = None
+    filename = None
+    subject_id = None
+    file_size = 0
+    created_at = None
+
+    if is_firestore_active():
+        doc_data = fs_get_document_by_id(document_id)
+        if doc_data:
+            file_path = doc_data.get("file_path")
+            filename = doc_data.get("filename")
+            subject_id = doc_data.get("subject_id")
+            file_size = doc_data.get("file_size", 0)
+            created_at = doc_data.get("created_at")
+
+    if not file_path:
+        doc = db.query(Document).filter(Document.id == document_id).first()
+        if doc:
+            file_path = doc.file_path
+            filename = doc.filename
+            subject_id = doc.subject_id
+            file_size = doc.file_size
+            created_at = doc.created_at
+
+    if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Document not found on disk")
 
-    rendered = render_docx_to_html(doc.file_path)
+    rendered = render_docx_to_html(file_path)
     return {
-        "id": doc.id,
-        "filename": doc.filename,
-        "subject_id": doc.subject_id,
-        "file_size": doc.file_size,
-        "created_at": doc.created_at,
+        "id": document_id,
+        "filename": filename or "document.docx",
+        "subject_id": subject_id,
+        "file_size": file_size,
+        "created_at": created_at,
         "html": rendered["html"],
         "toc": rendered["toc"],
         "word_count": rendered["word_count"],
@@ -124,13 +173,27 @@ def download_document(document_id: str, db: Session = Depends(get_db)):
     """
     Downloads original .docx file.
     """
-    doc = db.query(Document).filter(Document.id == document_id).first()
-    if not doc or not os.path.exists(doc.file_path):
+    file_path = None
+    filename = None
+
+    if is_firestore_active():
+        doc_data = fs_get_document_by_id(document_id)
+        if doc_data:
+            file_path = doc_data.get("file_path")
+            filename = doc_data.get("filename")
+
+    if not file_path:
+        doc = db.query(Document).filter(Document.id == document_id).first()
+        if doc:
+            file_path = doc.file_path
+            filename = doc.filename
+
+    if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Document not found on disk")
 
     return FileResponse(
-        path=doc.file_path,
-        filename=doc.filename,
+        path=file_path,
+        filename=filename or "document.docx",
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
@@ -140,16 +203,24 @@ def delete_document(document_id: str, db: Session = Depends(get_db)):
     """
     Deletes document record and associated disk file.
     """
-    doc = db.query(Document).filter(Document.id == document_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+    file_path = None
 
-    if os.path.exists(doc.file_path):
+    if is_firestore_active():
+        doc_data = fs_get_document_by_id(document_id)
+        if doc_data:
+            file_path = doc_data.get("file_path")
+            fs_delete_document(document_id)
+
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if doc:
+        file_path = file_path or doc.file_path
+        db.delete(doc)
+        db.commit()
+
+    if file_path and os.path.exists(file_path):
         try:
-            os.remove(doc.file_path)
+            os.remove(file_path)
         except OSError:
             pass
 
-    db.delete(doc)
-    db.commit()
     return None

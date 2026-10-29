@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from google.cloud.firestore_v1.base_query import FieldFilter
 from .firebase_client import get_firestore_db
-from .schemas import SubjectOut, PracticalOut, SubjectCreate, SubjectUpdate, PracticalBase, PracticalUpdate
+from .schemas import SubjectOut, PracticalOut, SubjectCreate, SubjectUpdate, PracticalBase, PracticalUpdate, DocumentOut
 
 
 def is_firestore_active() -> bool:
@@ -454,3 +454,91 @@ def fs_batch_commit_practicals(subject_id: str, practicals_data: List[dict]) -> 
     batch.commit()
     return created_items
 
+
+
+# -------------------------------------------------------------
+# DOCUMENTS FIRESTORE CRUD
+# -------------------------------------------------------------
+
+def fs_store_document(
+    doc_id: str,
+    subject_id: Optional[str],
+    filename: str,
+    file_path: str,
+    file_size: int,
+    parsed_practical_count: int = 0,
+) -> Dict[str, Any]:
+    db = get_firestore_db()
+    if not db:
+        return {}
+
+    now_dt = datetime.now(timezone.utc)
+    doc_data = {
+        "id": doc_id,
+        "subject_id": subject_id,
+        "filename": filename,
+        "file_path": file_path,
+        "file_size": file_size,
+        "parsed_practical_count": parsed_practical_count,
+        "created_at": now_dt.isoformat(),
+    }
+    db.collection("documents").document(doc_id).set(doc_data)
+    doc_data["created_at"] = now_dt
+    return doc_data
+
+
+def fs_get_documents(subject_id: Optional[str] = None) -> List[DocumentOut]:
+    db = get_firestore_db()
+    if not db:
+        return []
+
+    docs_ref = db.collection("documents")
+    if subject_id:
+        docs_ref = docs_ref.where(filter=FieldFilter("subject_id", "==", subject_id))
+
+    stream = docs_ref.stream()
+    results = []
+    for d in stream:
+        data = d.to_dict()
+        data["id"] = d.id
+        created_at = data.get("created_at")
+        if isinstance(created_at, str):
+            try:
+                created_at = datetime.fromisoformat(created_at)
+            except Exception:
+                created_at = datetime.now(timezone.utc)
+        elif not isinstance(created_at, datetime):
+            created_at = datetime.now(timezone.utc)
+
+        results.append(
+            DocumentOut(
+                id=d.id,
+                subject_id=data.get("subject_id"),
+                filename=data.get("filename", "document.docx"),
+                file_size=data.get("file_size", 0),
+                parsed_practical_count=data.get("parsed_practical_count", 0),
+                created_at=created_at,
+            )
+        )
+    results.sort(key=lambda x: x.created_at, reverse=True)
+    return results
+
+
+def fs_get_document_by_id(doc_id: str) -> Optional[Dict[str, Any]]:
+    db = get_firestore_db()
+    if not db:
+        return None
+    doc = db.collection("documents").document(doc_id).get()
+    if not doc.exists:
+        return None
+    data = doc.to_dict()
+    data["id"] = doc.id
+    return data
+
+
+def fs_delete_document(doc_id: str) -> bool:
+    db = get_firestore_db()
+    if not db:
+        return False
+    db.collection("documents").document(doc_id).delete()
+    return True

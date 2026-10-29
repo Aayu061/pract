@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Text, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, foreign
 from .database import Base
 
 
@@ -26,7 +26,13 @@ class Subject(Base):
     created_at = Column(DateTime, default=utc_now)
 
     practicals = relationship("Practical", back_populates="subject", cascade="all, delete-orphan", order_by="Practical.practical_number")
-    documents = relationship("Document", back_populates="subject", cascade="all, delete-orphan", order_by="Document.created_at.desc()")
+    documents = relationship(
+        "Document",
+        primaryjoin="Subject.id == foreign(Document.subject_id)",
+        cascade="all, delete-orphan",
+        order_by="Document.created_at.desc()",
+        overlaps="subject"
+    )
 
 
 class Practical(Base):
@@ -51,12 +57,16 @@ class Document(Base):
     __tablename__ = "documents"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    subject_id = Column(String(36), ForeignKey("subjects.id"), nullable=True, index=True)
+    # Stored as unconstrained string reference to allow seamless operation across Firestore & SQLite
+    subject_id = Column(String(36), nullable=True, index=True)
     filename = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=False)
     file_size = Column(Integer, nullable=False, default=0)
     parsed_practical_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=utc_now)
 
-    subject = relationship("Subject", back_populates="documents")
-
+    subject = relationship(
+        "Subject",
+        primaryjoin="foreign(Document.subject_id) == Subject.id",
+        overlaps="documents"
+    )
